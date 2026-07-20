@@ -1,7 +1,6 @@
 import { SAVE_KEY } from '../config/gameConfig.js';
 
 const SAVE_VERSION = 2;
-const TRUSTED_TIME_URLS = ['https://worldtimeapi.org/api/timezone/Etc/UTC', 'https://timeapi.io/api/Time/current/zone?timeZone=UTC'];
 
 function computeChecksum(value) {
   let hash = 5381;
@@ -42,47 +41,6 @@ function unpackSavePayload(raw) {
 
   // Backward compatibility with legacy plain JSON saves.
   return parsed;
-}
-
-async function fetchJsonWithTimeout(url, timeoutMs = 2000) {
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), timeoutMs);
-
-  try {
-    const response = await fetch(url, { cache: 'no-store', signal: controller.signal });
-
-    if (!response.ok) {
-      return null;
-    }
-
-    return await response.json();
-  } catch (error) {
-    return null;
-  } finally {
-    clearTimeout(timeout);
-  }
-}
-
-function parseTrustedNowMs(payload) {
-  if (!payload || typeof payload !== 'object') {
-    return null;
-  }
-
-  if (typeof payload.unixtime === 'number') {
-    return payload.unixtime * 1000;
-  }
-
-  if (typeof payload.dateTime === 'string') {
-    const parsed = Date.parse(payload.dateTime);
-    return Number.isFinite(parsed) ? parsed : null;
-  }
-
-  if (typeof payload.currentDateTime === 'string') {
-    const parsed = Date.parse(payload.currentDateTime);
-    return Number.isFinite(parsed) ? parsed : null;
-  }
-
-  return null;
 }
 
 function shouldResetSaveByQueryParam() {
@@ -160,21 +118,4 @@ export function loadGameState() {
 
 export function saveGameState(state) {
   localStorage.setItem(SAVE_KEY, packSavePayload(state));
-}
-
-export function clearGameState() {
-  localStorage.removeItem(SAVE_KEY);
-}
-
-export async function fetchTrustedNowMs(timeoutMs = 2000) {
-  for (const url of TRUSTED_TIME_URLS) {
-    const payload = await fetchJsonWithTimeout(url, timeoutMs);
-    const trustedNowMs = parseTrustedNowMs(payload);
-
-    if (trustedNowMs) {
-      return trustedNowMs;
-    }
-  }
-
-  return null;
 }

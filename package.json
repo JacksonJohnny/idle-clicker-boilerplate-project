@@ -6,28 +6,43 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "cap:init": "cap init ClickerGame com.clickergame.app --web-dir dist",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "cap:add:android": "cap add android",
+    "cap:add:ios": "cap add ios",
+    "cap:doctor": "cap doctor",
     "cap:sync": "cap sync",
     "cap:sync:android": "cap sync android",
     "cap:sync:ios": "cap sync ios",
     "cap:open:android": "cap open android",
     "cap:open:ios": "cap open ios",
-    "android": "npm run build && npm run cap:sync:android && npm run cap:open:android",
-    "ios": "npm run build && npm run cap:sync:ios && npm run cap:open:ios"
+    "mobile:android": "npm run build && npm run cap:sync:android",
+    "mobile:ios": "npm run build && npm run cap:sync:ios",
+    "android": "npm run mobile:android && npm run cap:open:android",
+    "ios": "npm run mobile:ios && npm run cap:open:ios"
   },
-  "keywords": [],
+  "keywords": [
+    "clicker",
+    "idle-game",
+    "phaser",
+    "capacitor",
+    "mobile"
+  ],
   "author": "",
   "license": "ISC",
-  "description": "",
+  "description": "Reusable mobile-first idle clicker boilerplate built with Phaser and Capacitor.",
   "dependencies": {
-    "@capacitor/android": "^8.4.1",
-    "@capacitor/cli": "^8.4.1",
-    "@capacitor/core": "^8.4.1",
-    "@capacitor/ios": "^8.4.1",
+    "@capacitor/android": "^8.4.2",
+    "@capacitor/core": "^8.4.2",
+    "@capacitor/ios": "^8.4.2",
     "decimal.js": "^10.6.0",
     "phaser": "^4.2.1"
   },
   "devDependencies": {
-    "vite": "^8.1.4"
+    "@capacitor/cli": "^8.4.2",
+    "@vitest/coverage-v8": "^4.1.10",
+    "vite": "^8.1.4",
+    "vitest": "^4.1.10"
   }
 }

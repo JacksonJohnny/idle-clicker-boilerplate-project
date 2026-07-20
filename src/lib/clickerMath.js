@@ -52,7 +52,7 @@ export function formatCoins(value) {
   return amount.toExponential(2).replace('e+', 'e');
 }
 
-export function calculateUpgradeCost(upgrade) {
+function calculateUpgradeCost(upgrade) {
   const baseCost = toDecimal(upgrade.baseCost);
   const growth = toDecimal(upgrade.growth);
   return baseCost.times(growth.pow(upgrade.level)).floor();
@@ -71,7 +71,7 @@ export function isUpgradeUnlocked(upgrade, upgrades) {
   return prerequisite?.level > 0;
 }
 
-export function calculateStats(upgrades, boosts = []) {
+function calculateStats(upgrades, boosts = []) {
   const clickExtra = upgrades
     .filter((upgrade) => upgrade.type === 'click')
     .reduce((sum, upgrade) => sum.plus(toDecimal(upgrade.baseValue).times(upgrade.level)), new Decimal(0));
@@ -94,7 +94,7 @@ export function calculateStats(upgrades, boosts = []) {
   };
 }
 
-export function createInitialState(upgrades, boosts = []) {
+function createInitialState(upgrades, boosts = []) {
   const state = {
     coins: new Decimal(0),
     totalClicks: 0,
@@ -107,7 +107,7 @@ export function createInitialState(upgrades, boosts = []) {
   return recalculateState(state);
 }
 
-export function recalculateState(state) {
+function recalculateState(state) {
   const stats = calculateStats(state.upgrades, state.boosts);
   state.perClick = stats.perClick;
   state.perSecond = stats.perSecond;
@@ -115,7 +115,7 @@ export function recalculateState(state) {
   return state;
 }
 
-export function mergeStateFromSave(state, loaded) {
+function mergeStateFromSave(state, loaded) {
   if (!loaded) {
     return state;
   }
@@ -137,7 +137,7 @@ export function mergeStateFromSave(state, loaded) {
   return recalculateState(state);
 }
 
-export function buyUpgrade(state, upgradeId) {
+function buyUpgrade(state, upgradeId) {
   const upgrade = state.upgrades.find((item) => item.id === upgradeId);
 
   if (!upgrade) {
@@ -168,7 +168,7 @@ export function buyUpgrade(state, upgradeId) {
   };
 }
 
-export function buyBoost(state, boostId) {
+function buyBoost(state, boostId) {
   const boost = state.boosts.find((item) => item.id === boostId);
 
   if (!boost || boost.purchased) {
@@ -195,7 +195,7 @@ export function buyBoost(state, boostId) {
   return { ok: true, cost };
 }
 
-export function applyAutoIncome(state, seconds = 1) {
+function applyAutoIncome(state, seconds = 1) {
   const safeSeconds = Number.isFinite(Number(seconds)) ? Math.max(0, Number(seconds)) : 0;
 
   if (state.perSecond.lte(0) || safeSeconds <= 0) {
@@ -220,7 +220,7 @@ function toTimestampMs(value) {
   return null;
 }
 
-export function applyOfflineProgress(state, lastSavedAt, nowMs = Date.now(), maxOfflineSeconds = 8 * 60 * 60) {
+function applyOfflineProgress(state, lastSavedAt, nowMs = Date.now(), maxOfflineSeconds = 8 * 60 * 60) {
   const savedAtMs = toTimestampMs(lastSavedAt);
 
   if (!savedAtMs || nowMs <= savedAtMs) {
@@ -237,7 +237,7 @@ export function applyOfflineProgress(state, lastSavedAt, nowMs = Date.now(), max
   };
 }
 
-export function serializeState(state) {
+function serializeState(state) {
   return {
     coins: state.coins.toString(),
     totalClicks: state.totalClicks,

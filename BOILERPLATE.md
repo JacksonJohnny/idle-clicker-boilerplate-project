@@ -4,30 +4,29 @@ This project is organized to reuse a Phaser clicker game foundation.
 
 ## Structure
 
-- src/config/gameConfig.js
-  - Global game configuration (size, scene key, loops)
-- src/data/upgrades.js
-  - Initial upgrades catalog
-- src/lib/clickerMath.js
-  - Pure economy functions and clicker controller (tap, buy, tick, snapshot)
-- src/services/saveStorage.js
-  - localStorage persistence
-- src/scenes/ClickerScene.js
-  - UI and input layer
+- `src/config`: game settings, visual theme and UI text.
+- `src/controllers`: stateful interaction controllers.
+- `src/data`: separate generator, upgrade and boost catalogs.
+- `src/lib`: pure economy functions and clicker controller.
+- `src/services`: persistence, preferences and device feedback.
+- `src/ui`: Phaser UI builders without economy rules.
+- `src/scenes`: scene orchestration and game lifecycle.
 
 ## How To Create A New Clicker With This Base
 
-1. Update upgrades in src/data/upgrades.js
-2. Tweak growth and formulas in src/lib/clickerMath.js
-3. Replace texts and layout in src/scenes/ClickerScene.js
-4. Adjust aspect ratio and loops in src/config/gameConfig.js
+1. Update generators in `src/data/generators.js`.
+2. Update click upgrades and boosts in `src/data`.
+3. Change colors/fonts in `src/config/theme.js` and labels in `src/config/uiText.js`.
+4. Tweak formulas in `src/lib/clickerMath.js`.
+5. Adjust aspect ratio and loops in `src/config/gameConfig.js`.
+6. Run `npm test` and `npm run build`.
 
 ## Recommended Expansion Points
 
-- Prestige: create a module in src/core/prestigeEngine.js
-- Bonus system: create src/data/modifiers.js
+- Prestige: create a pure module in `src/lib/prestigeMath.js`.
+- Bonus system: create `src/data/modifiers.js`.
 - Offline progress: already implemented with savedAt in snapshot and cap by LOOP_CONFIG.maxOfflineSeconds
-- Missions and achievements: create src/core/objectivesEngine.js
+- Missions and achievements: create `src/lib/objectivesEngine.js`.
 
 ## Core Idle Systems Included
 
@@ -40,4 +39,14 @@ This project is organized to reuse a Phaser clicker game foundation.
 - Save and basic anti-cheat:
   - Autosaves in background every 10 seconds.
   - Save payload is wrapped with a checksum (basic tamper detection).
-  - Includes a trusted-time hook (`fetchTrustedNowMs`) to compare against online UTC sources.
+- Progressive catalog disclosure:
+  - Shows unlocked generators plus only the next locked entry as `???`.
+  - Uses the catalog order and `unlockAfter`, so future entries stay hidden automatically.
+- Mobile purchase input:
+  - A tap buys one unit.
+  - Holding a buy button starts after 550 ms and accelerates exponentially up to 10 purchases per second.
+  - Scrolling, swiping, leaving the game, or releasing outside cancels the hold safely.
+- Device feedback:
+  - Purchases use a generated Web Audio cue and light vibration when supported.
+  - Milestones use a distinct audio frequency and vibration pattern.
+  - Players can disable sound and vibration from the settings tab.
