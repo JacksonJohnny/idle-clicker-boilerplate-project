@@ -29,16 +29,6 @@ export function buildUpgradeListView({ scene, container, upgrades, layout, onPoi
         color: '#9dd7ff',
       })
       .setOrigin(0, 0.5);
-    const stars = (upgrade.milestones ?? []).map(() =>
-      scene.add
-        .text(0, y - rowHeight * 0.22, '★', {
-          fontFamily: FONT_FAMILIES.body,
-          fontSize: '15px',
-          color: '#ffd43b',
-        })
-        .setOrigin(0, 0.5)
-        .setVisible(false),
-    );
     const buyButton = scene.add
       .rectangle(buyButtonX, y, buyButtonWidth, buyButtonHeight, COLORS.primary)
       .setStrokeStyle(2, COLORS.primaryBorder)
@@ -62,8 +52,8 @@ export function buildUpgradeListView({ scene, container, upgrades, layout, onPoi
       onPointerUp(upgrade, pointer, moved);
     });
 
-    const item = { id: upgrade.id, baseY: y, rowBg, label, info, stars, buyButton, buyText };
-    container.add([rowBg, label, info, ...stars, buyButton, buyText]);
+    const item = { id: upgrade.id, baseY: y, rowBg, label, info, buyButton, buyText };
+    container.add([rowBg, label, info, buyButton, buyText]);
     return item;
   });
 }

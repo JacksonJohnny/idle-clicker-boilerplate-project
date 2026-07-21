@@ -1,4 +1,3 @@
-export const DEFAULT_GENERATOR_MILESTONES = [10, 25, 50, 100, 200];
 export const DEFAULT_GENERATOR_GROWTH = 1.15;
 
 export function createGenerator(definition, unlockAfter) {
@@ -6,7 +5,6 @@ export function createGenerator(definition, unlockAfter) {
     ...definition,
     growth: definition.growth ?? DEFAULT_GENERATOR_GROWTH,
     type: 'auto',
-    milestones: definition.milestones ?? [...DEFAULT_GENERATOR_MILESTONES],
     ...(unlockAfter ? { unlockAfter } : {}),
   };
 }

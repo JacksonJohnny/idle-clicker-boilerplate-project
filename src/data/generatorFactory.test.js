@@ -1,14 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { createGenerator, createGeneratorChain, DEFAULT_GENERATOR_GROWTH, DEFAULT_GENERATOR_MILESTONES } from './generatorFactory.js';
+import { createGenerator, createGeneratorChain, DEFAULT_GENERATOR_GROWTH } from './generatorFactory.js';
 
 describe('generatorFactory', () => {
-  it('applies generator defaults without sharing the milestone array', () => {
-    const first = createGenerator({ id: 'first', label: 'First', baseCost: 10, baseValue: 1 });
-    const second = createGenerator({ id: 'second', label: 'Second', baseCost: 20, baseValue: 2 });
+  it('applies generator defaults', () => {
+    const generator = createGenerator({ id: 'first', label: 'First', baseCost: 10, baseValue: 1 });
 
-    expect(first).toMatchObject({ type: 'auto', growth: DEFAULT_GENERATOR_GROWTH });
-    expect(first.milestones).toEqual(DEFAULT_GENERATOR_MILESTONES);
-    expect(first.milestones).not.toBe(second.milestones);
+    expect(generator).toMatchObject({ type: 'auto', growth: DEFAULT_GENERATOR_GROWTH });
+    expect(generator.milestones).toBeUndefined();
   });
 
   it('links a generator chain in catalog order', () => {
@@ -30,10 +28,8 @@ describe('generatorFactory', () => {
       baseCost: 50,
       baseValue: 5,
       growth: 1.2,
-      milestones: [5, 15],
     });
 
     expect(generator.growth).toBe(1.2);
-    expect(generator.milestones).toEqual([5, 15]);
   });
 });

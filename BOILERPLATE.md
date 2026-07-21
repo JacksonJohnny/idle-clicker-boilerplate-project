@@ -1,52 +1,48 @@
 # Boilerplate Clicker
 
-This project is organized to reuse a Phaser clicker game foundation.
+Reusable Phaser + Capacitor idle clicker foundation.
 
 ## Structure
 
-- `src/config`: game settings, visual theme and UI text.
-- `src/controllers`: stateful interaction controllers.
-- `src/data`: separate generator, upgrade and boost catalogs.
-- `src/lib`: pure economy functions and clicker controller.
-- `src/services`: persistence, preferences and device feedback.
-- `src/ui`: Phaser UI builders without economy rules.
-- `src/scenes`: scene orchestration and game lifecycle.
+- `src/config` — resolution, theme, UI text, `SAVE_KEY` / `SAVE_VERSION`
+- `src/controllers` — `ListScrollController` (visual scrollbar + finger scroll)
+- `src/data` — generators, click upgrades, `metaUpgrades.js`
+- `src/lib` — pure economy (`clickerMath`) + Auto Tap progress math
+- `src/services` — save/migrations, settings, feedback, storage adapter
+- `src/ui` — Phaser builders (no buy rules) + `metaUpgradeCopy`
+- `src/scenes` — thin `ClickerScene` + `scenes/clicker/*` helpers
 
-## How To Create A New Clicker With This Base
+## Rebrand in 15 minutes
 
-1. Update generators in `src/data/generators.js`.
-2. Update click upgrades and boosts in `src/data`.
-3. Change colors/fonts in `src/config/theme.js` and labels in `src/config/uiText.js`.
-4. Tweak formulas in `src/lib/clickerMath.js`.
-5. Adjust aspect ratio and loops in `src/config/gameConfig.js`.
-6. Run `npm test` and `npm run build`.
+1. Theme: `src/config/theme.js` + title in `src/config/uiText.js`
+2. Generators: `src/data/generators.js` (ids like `generator-1`)
+3. Click / Auto Tap: `src/data/upgrades.js`
+4. Meta-upgrades: `src/data/metaUpgrades.js`
+5. Loops / resolution: `src/config/gameConfig.js`
+6. Optional env: copy `.env.example` → `.env` (`VITE_APP_ID`, `VITE_SAVE_KEY`)
+7. Run `npm test` and `npm run build`
 
-## Recommended Expansion Points
+### Changing save format without wiping players
 
-- Prestige: create a pure module in `src/lib/prestigeMath.js`.
-- Bonus system: create `src/data/modifiers.js`.
-- Offline progress: already implemented with savedAt in snapshot and cap by LOOP_CONFIG.maxOfflineSeconds
-- Missions and achievements: create `src/lib/objectivesEngine.js`.
+1. Do **not** rename `SAVE_KEY` (or add the old key to `LEGACY_SAVE_KEYS`).
+2. Bump `SAVE_VERSION` in `gameConfig.js`.
+3. Add `{ from, to, migrate }` in `src/services/saveMigrations.js`.
+4. If you rename an id, add it to `UPGRADE_ID_ALIASES` / `BOOST_ID_ALIASES`.
 
-## Core Idle Systems Included
+## Recommended expansion points
 
-- Offline progress loop:
-  - Uses direct math (single formula block), never frame-by-frame simulation for offline time.
-  - `applyOfflineProgress` applies production from elapsed time in one step.
-- Big number math:
-  - Uses `decimal.js` for large-scale idle progression values.
-  - Supports short suffix formatting and scientific notation fallback for very large numbers.
-- Save and basic anti-cheat:
-  - Autosaves in background every 10 seconds.
-  - Save payload is wrapped with a checksum (basic tamper detection).
-- Progressive catalog disclosure:
-  - Shows unlocked generators plus only the next locked entry as `???`.
-  - Uses the catalog order and `unlockAfter`, so future entries stay hidden automatically.
-- Mobile purchase input:
-  - A tap buys one unit.
-  - Holding a buy button starts after 550 ms and accelerates exponentially up to 10 purchases per second.
-  - Scrolling, swiping, leaving the game, or releasing outside cancels the hold safely.
-- Device feedback:
-  - Purchases use a generated Web Audio cue and light vibration when supported.
-  - Milestones use a distinct audio frequency and vibration pattern.
-  - Players can disable sound and vibration from the settings tab.
+- Prestige: add `src/lib/prestigeMath.js` (not shipped).
+- Modifiers: add `src/data/modifiers.js` (not shipped).
+- Missions: add `src/lib/objectivesEngine.js` (not shipped).
+
+## Core systems included
+
+- Wall-clock idle + offline catch-up (`savedAt`, `maxOfflineSeconds`)
+- Decimal.js economy + Cookie Clicker–style formatting
+- Versioned save + checksum + soft salvage
+- Progressive catalog (`???` for next locked)
+- Hold-to-buy on STORE
+- Auto Tap rings, color tiers, per-cursor floating gains
+- Sound / vibration settings
+
+See [README.md](README.md) for full gameplay and save docs.

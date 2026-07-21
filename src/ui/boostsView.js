@@ -1,31 +1,30 @@
-import { COLORS, FONT_FAMILIES, UI_LAYOUT } from '../config/theme.js';
-import { UI_TEXT } from '../config/uiText.js';
+import { COLORS, FONT_FAMILIES } from '../config/theme.js';
 
-export function buildBoostsView({ scene, container, boosts, onPointerDown, onBuy }) {
+export function buildBoostsView({ scene, container, boosts, layout, onPointerDown, onBuy }) {
   const width = scene.scale.width;
-  const title = scene.add
-    .text(28, UI_LAYOUT.sectionTitleY, UI_TEXT.boostsTitle, {
-      fontFamily: FONT_FAMILIES.display,
-      fontSize: '24px',
-      color: COLORS.accentText,
-    })
-    .setOrigin(0, 0.5);
-  const objects = [title];
-  const items = boosts.map((boost, index) => {
-    const y = 348 + index * 122;
-    const background = scene.add.rectangle(width / 2, y, width - 48, 98, COLORS.panel, 0.96).setStrokeStyle(2, COLORS.panelBorder);
+  const { rowHeight, listTop } = layout;
+  const buyButtonWidth = 148;
+  const buyButtonHeight = 58;
+  const buyButtonX = width - buyButtonWidth / 2 - 34;
+
+  return boosts.map((boost) => {
+    const y = listTop + rowHeight / 2;
+    const background = scene.add.rectangle(width / 2, y, width - 58, rowHeight, COLORS.panel, 0.96).setStrokeStyle(2, COLORS.panelBorder);
     const name = scene.add
-      .text(44, y - 19, boost.name, { fontFamily: FONT_FAMILIES.display, fontSize: '21px', color: COLORS.text })
+      .text(38, y - 22, boost.name, { fontFamily: FONT_FAMILIES.display, fontSize: '18px', color: COLORS.text })
       .setOrigin(0, 0.5);
     const condition = scene.add
-      .text(44, y + 21, '', { fontFamily: FONT_FAMILIES.body, fontSize: '18px', color: COLORS.mutedText })
+      .text(38, y + 8, '', { fontFamily: FONT_FAMILIES.body, fontSize: '15px', color: COLORS.mutedText })
+      .setOrigin(0, 0.5);
+    const effect = scene.add
+      .text(38, y + 30, '', { fontFamily: FONT_FAMILIES.body, fontSize: '15px', color: COLORS.upgradeInfo })
       .setOrigin(0, 0.5);
     const buyButton = scene.add
-      .rectangle(width - 104, y, 148, 58, COLORS.primary)
+      .rectangle(buyButtonX, y, buyButtonWidth, buyButtonHeight, COLORS.primary)
       .setStrokeStyle(2, COLORS.primaryBorder)
       .setInteractive({ useHandCursor: true });
     const buyText = scene.add
-      .text(width - 104, y, '', { fontFamily: FONT_FAMILIES.display, fontSize: '17px', color: COLORS.primaryText })
+      .text(buyButtonX, y, '', { fontFamily: FONT_FAMILIES.display, fontSize: '16px', color: COLORS.primaryText })
       .setOrigin(0.5);
 
     buyButton.on('pointerdown', (pointer) => {
@@ -41,10 +40,8 @@ export function buildBoostsView({ scene, container, boosts, onPointerDown, onBuy
       }
     });
 
-    objects.push(background, name, condition, buyButton, buyText);
-    return { id: boost.id, background, name, condition, buyButton, buyText };
+    const item = { id: boost.id, baseY: y, background, name, condition, effect, buyButton, buyText };
+    container.add([background, name, condition, effect, buyButton, buyText]);
+    return item;
   });
-
-  container.add(objects);
-  return items;
 }

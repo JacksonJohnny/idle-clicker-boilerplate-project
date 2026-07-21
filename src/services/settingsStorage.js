@@ -1,4 +1,5 @@
 import { SAVE_KEY } from '../config/gameConfig.js';
+import { storageGetItem, storageSetItem } from './storageAdapter.js';
 
 const SETTINGS_KEY = `${SAVE_KEY}-settings`;
 const DEFAULT_SETTINGS = {
@@ -8,7 +9,8 @@ const DEFAULT_SETTINGS = {
 
 export function loadSettings() {
   try {
-    const saved = JSON.parse(localStorage.getItem(SETTINGS_KEY));
+    const raw = storageGetItem(SETTINGS_KEY);
+    const saved = raw ? JSON.parse(raw) : null;
 
     return {
       soundEnabled: saved?.soundEnabled !== false,
@@ -20,5 +22,5 @@ export function loadSettings() {
 }
 
 export function saveSettings(settings) {
-  localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+  storageSetItem(SETTINGS_KEY, JSON.stringify(settings));
 }

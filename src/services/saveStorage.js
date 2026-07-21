@@ -1,8 +1,8 @@
-import { SAVE_KEY } from '../config/gameConfig.js';
+import { LEGACY_SAVE_KEYS, SAVE_KEY, SAVE_VERSION } from '../config/gameConfig.js';
+import { migrateSaveState, normalizeSaveState } from './saveMigrations.js';
+import { purgeGameStorageKeys, storageGetItem, storageRemoveItem, storageSetItem } from './storageAdapter.js';
 
-const SAVE_VERSION = 2;
-
-function computeChecksum(value) {
+export function computeChecksum(value) {
   let hash = 5381;
 
   for (let i = 0; i < value.length; i += 1) {
@@ -12,7 +12,7 @@ function computeChecksum(value) {
   return (hash >>> 0).toString(16);
 }
 
-function packSavePayload(state) {
+export function packSavePayload(state) {
   const payload = JSON.stringify(state);
 
   return JSON.stringify({
@@ -22,25 +22,75 @@ function packSavePayload(state) {
   });
 }
 
-function unpackSavePayload(raw) {
-  const parsed = JSON.parse(raw);
+function isLikelySaveState(value) {
+  return Boolean(value && typeof value === 'object' && (value.coins !== undefined || Array.isArray(value.upgrades)));
+}
 
+function verifyChecksum(payload, checksum, version, storageKey) {
+  if (typeof payload !== 'string' || typeof checksum !== 'string') {
+    return false;
+  }
+
+  const expected = computeChecksum(`${payload}:${storageKey}:${version}`);
+  return expected === checksum;
+}
+
+export function unpackEnvelope(parsed, storageKey = SAVE_KEY) {
   if (!parsed || typeof parsed !== 'object') {
     return null;
   }
 
-  if (typeof parsed.payload === 'string' && typeof parsed.checksum === 'string') {
-    const expected = computeChecksum(`${parsed.payload}:${SAVE_KEY}:${parsed.version ?? SAVE_VERSION}`);
+  if (typeof parsed.payload === 'string') {
+    const version = Number.isFinite(Number(parsed.version)) ? Number(parsed.version) : 1;
+    const checksumOk = verifyChecksum(parsed.payload, parsed.checksum, version, storageKey);
 
-    if (expected !== parsed.checksum) {
+    try {
+      const state = JSON.parse(parsed.payload);
+      if (!isLikelySaveState(state)) {
+        return null;
+      }
+
+      return {
+        state,
+        version,
+        verified: checksumOk,
+      };
+    } catch (error) {
       return null;
     }
-
-    return JSON.parse(parsed.payload);
   }
 
-  // Backward compatibility with legacy plain JSON saves.
-  return parsed;
+  if (isLikelySaveState(parsed)) {
+    return {
+      state: parsed,
+      version: 1,
+      verified: true,
+    };
+  }
+
+  return null;
+}
+
+function readRawFromKeys() {
+  const keys = [SAVE_KEY, ...LEGACY_SAVE_KEYS];
+
+  for (const key of keys) {
+    const raw = storageGetItem(key);
+    if (!raw) {
+      continue;
+    }
+
+    try {
+      const unpacked = unpackEnvelope(JSON.parse(raw), key);
+      if (unpacked) {
+        return { ...unpacked, sourceKey: key };
+      }
+    } catch (error) {
+      // Try next key.
+    }
+  }
+
+  return null;
 }
 
 function shouldResetSaveByQueryParam() {
@@ -50,38 +100,6 @@ function shouldResetSaveByQueryParam() {
 
   const params = new URLSearchParams(window.location.search);
   return params.get('resetSave') === '1';
-}
-
-function purgeOriginStorage() {
-  try {
-    localStorage.removeItem(SAVE_KEY);
-    localStorage.clear();
-  } catch (error) {
-    // Ignore storage purge failures and continue with fresh state fallback.
-  }
-
-  try {
-    sessionStorage.clear();
-  } catch (error) {
-    // Ignore storage purge failures and continue with fresh state fallback.
-  }
-
-  if (typeof caches !== 'undefined') {
-    caches.keys().then((keys) => Promise.all(keys.map((key) => caches.delete(key)))).catch(() => {});
-  }
-
-  if (typeof indexedDB !== 'undefined' && typeof indexedDB.databases === 'function') {
-    indexedDB
-      .databases()
-      .then((databases) => {
-        databases.forEach((database) => {
-          if (database.name) {
-            indexedDB.deleteDatabase(database.name);
-          }
-        });
-      })
-      .catch(() => {});
-  }
 }
 
 function removeResetParamFromUrl() {
@@ -99,23 +117,33 @@ function removeResetParamFromUrl() {
 export function loadGameState() {
   try {
     if (shouldResetSaveByQueryParam()) {
-      purgeOriginStorage();
+      purgeGameStorageKeys();
       removeResetParamFromUrl();
       return null;
     }
 
-    const raw = localStorage.getItem(SAVE_KEY);
+    const loaded = readRawFromKeys();
 
-    if (!raw) {
+    if (!loaded) {
       return null;
     }
 
-    return unpackSavePayload(raw);
+    const migrated = migrateSaveState(loaded.state, loaded.version);
+
+    if (loaded.sourceKey !== SAVE_KEY || loaded.version !== SAVE_VERSION || !loaded.verified) {
+      saveGameState(migrated.state);
+      if (loaded.sourceKey !== SAVE_KEY) {
+        storageRemoveItem(loaded.sourceKey);
+      }
+    }
+
+    return migrated.state;
   } catch (error) {
     return null;
   }
 }
 
 export function saveGameState(state) {
-  localStorage.setItem(SAVE_KEY, packSavePayload(state));
+  const normalized = normalizeSaveState(state);
+  storageSetItem(SAVE_KEY, packSavePayload(normalized));
 }

@@ -2,11 +2,11 @@ import Phaser from 'phaser';
 import { LOOP_CONFIG, SCENE_KEY } from '../config/gameConfig.js';
 import { COLORS, FONT_FAMILIES, UI_LAYOUT } from '../config/theme.js';
 import { UI_TEXT } from '../config/uiText.js';
-import { UpgradeScrollController } from '../controllers/UpgradeScrollController.js';
-import { MILESTONE_BOOSTS } from '../data/boosts.js';
+import { ListScrollController } from '../controllers/ListScrollController.js';
+import { META_UPGRADES } from '../data/metaUpgrades.js';
 import { CLICKER_GENERATORS } from '../data/generators.js';
 import { CLICK_UPGRADES } from '../data/upgrades.js';
-import { createClickerController, formatCoins, getReachedMilestones, isUpgradeUnlocked } from '../lib/clickerMath.js';
+import { createClickerController, formatCoins, getAutoTapCursorCount } from '../lib/clickerMath.js';
 import { createFeedbackService } from '../services/feedbackService.js';
 import { loadGameState, saveGameState } from '../services/saveStorage.js';
 import { loadSettings, saveSettings } from '../services/settingsStorage.js';
@@ -14,30 +14,38 @@ import { buildBoostsView } from '../ui/boostsView.js';
 import { buildBottomNavigation } from '../ui/bottomNavigation.js';
 import { buildSettingsButton, buildSettingsView } from '../ui/settingsView.js';
 import { buildUpgradeListView } from '../ui/upgradeListView.js';
-
-function formatOfflineDuration(totalSeconds) {
-  const hours = Math.floor(totalSeconds / 3600);
-  const minutes = Math.floor((totalSeconds % 3600) / 60);
-  const seconds = totalSeconds % 60;
-
-  if (hours > 0) {
-    return `${hours}h ${minutes}m`;
-  }
-
-  if (minutes > 0) {
-    return `${minutes}m ${seconds}s`;
-  }
-
-  return `${seconds}s`;
-}
+import { createAutoTapCursorLayer } from '../ui/autoTapCursors.js';
+import { getMetaUpgradeEffectText } from '../ui/metaUpgradeCopy.js';
+import handCursorUrl from '../assets/hand-cursor.png';
+import {
+  destroyStartOverlay,
+  showOfflineReturn as showOfflineReturnOverlay,
+  showStartOverlay as showStartOverlayUI,
+} from './clicker/overlays.js';
+import { createHoldBuyController } from './clicker/holdBuy.js';
+import {
+  applyWallClockProgress as applyWallClockProgressHelper,
+  bindLifecyclePersistence,
+  flushProgressAndSave as flushProgressAndSaveHelper,
+} from './clicker/wallClock.js';
+import { renderStoreRows, updateMetaListLayout, updateStoreListLayout } from './clicker/listRender.js';
+import {
+  beginPageSwipe as beginPageSwipeHelper,
+  setActivePage as setActivePageHelper,
+  setupPageSwipe,
+} from './clicker/pageNavigation.js';
 
 export class ClickerScene extends Phaser.Scene {
   constructor() {
     super(SCENE_KEY);
   }
 
+  preload() {
+    this.load.image('hand-cursor', handCursorUrl);
+  }
+
   create() {
-    this.engine = createClickerController([...CLICK_UPGRADES, ...CLICKER_GENERATORS], MILESTONE_BOOSTS);
+    this.engine = createClickerController([...CLICK_UPGRADES, ...CLICKER_GENERATORS], META_UPGRADES);
     const loadedState = loadGameState();
     const hasSave = !!loadedState;
     const offline = this.engine.hydrate(loadedState, {
@@ -57,7 +65,6 @@ export class ClickerScene extends Phaser.Scene {
     this.navTop = height - this.navHeight;
     this.tapCenterY = UI_LAYOUT.tapCenterY;
     this.gamePage = this.add.container(0, 0);
-    this.boostsPage = this.add.container(0, 0);
     this.settingsPage = this.add.container(0, 0);
 
     this.add.rectangle(width / 2, height / 2, width, height, COLORS.background, 0.2);
@@ -72,10 +79,12 @@ export class ClickerScene extends Phaser.Scene {
       })
       .setOrigin(0.5);
 
+    this.hudMaxWidth = width - 34;
+
     this.coinsText = this.add
       .text(width / 2, 134, '', {
         fontFamily: FONT_FAMILIES.body,
-        fontSize: '52px',
+        fontSize: '44px',
         color: COLORS.whiteText,
         fontStyle: '800',
       })
@@ -84,7 +93,7 @@ export class ClickerScene extends Phaser.Scene {
     this.statsText = this.add
       .text(width / 2, 202, '', {
         fontFamily: FONT_FAMILIES.body,
-        fontSize: '24px',
+        fontSize: '22px',
         color: COLORS.statsText,
       })
       .setOrigin(0.5);
@@ -102,17 +111,9 @@ export class ClickerScene extends Phaser.Scene {
       })
       .setOrigin(0.5);
 
-    const tapHint = this.add
-      .text(width / 2, 650, UI_TEXT.tapHint, {
-        fontFamily: FONT_FAMILIES.body,
-        fontSize: '22px',
-        color: COLORS.hintText,
-        fontStyle: '700',
-      })
-      .setOrigin(0.5);
-
     this.tapButtonVisuals = [coreRing, this.coreButton, coreInner, this.buttonLabel];
-    this.gamePage.add([this.coreGlow, ...this.tapButtonVisuals, tapHint]);
+    this.autoTapCursors = createAutoTapCursorLayer(this, width / 2, this.tapCenterY);
+    this.gamePage.add([this.coreGlow, ...this.tapButtonVisuals, this.autoTapCursors.layer]);
 
     this.coreButton.on('pointerdown', (pointer) => {
       this.corePointerDown = { x: pointer.x, y: pointer.y };
@@ -193,10 +194,58 @@ export class ClickerScene extends Phaser.Scene {
       onPointerDown: (upgrade, pointer) => this.startUpgradePurchase(upgrade, pointer),
       onPointerUp: (upgrade, pointer, moved) => this.finishUpgradePurchase(upgrade, pointer, moved),
     });
+
+    const boostRowHeight = 98;
+    const boostRowGap = 16;
+    const boostPanelPadding = 12;
+    const boostPanelTop = 294;
+    const boostPanelBottomMargin = this.navHeight + 14;
+    const boostMaxPanelHeight = height - boostPanelTop - boostPanelBottomMargin;
+    const boostPanelHeight = boostMaxPanelHeight;
+    const boostPanelCenterY = height - boostPanelBottomMargin - boostPanelHeight / 2;
+    const boostPanelTopY = boostPanelCenterY - boostPanelHeight / 2;
+    const boostPanelBottomY = boostPanelCenterY + boostPanelHeight / 2;
+    const boostListTop = boostPanelTopY + boostPanelPadding;
+    const boostListBottom = boostPanelBottomY - boostPanelPadding;
+
+    this.boostLayout = {
+      rowHeight: boostRowHeight,
+      rowGap: boostRowGap,
+      panelCenterY: boostPanelCenterY,
+      panelTopY: boostPanelTopY,
+      panelBottomY: boostPanelBottomY,
+      listLeft: 24,
+      listWidth: width - 56,
+      listTop: boostListTop,
+      listBottom: boostListBottom,
+      visibleListHeight: boostListBottom - boostListTop,
+      listHeight: 0,
+    };
+
+    this.boostsTitle = this.add
+      .text(28, UI_LAYOUT.sectionTitleY, UI_TEXT.metaUpgradesTitle || UI_TEXT.boostsTitle, {
+        fontFamily: FONT_FAMILIES.display,
+        fontSize: '24px',
+        color: COLORS.accentText,
+      })
+      .setOrigin(0, 0.5);
+    this.boostPanelBg = this.add
+      .rectangle(width / 2, boostPanelCenterY, width - 34, boostPanelHeight, COLORS.storePanel, 0.86)
+      .setStrokeStyle(2, COLORS.storePanelBorder);
+    this.boostEmptyText = this.add
+      .text(width / 2, boostPanelCenterY, UI_TEXT.unlockHint, {
+        fontFamily: FONT_FAMILIES.body,
+        fontSize: '20px',
+        color: COLORS.mutedText,
+      })
+      .setOrigin(0.5)
+      .setVisible(false);
+    this.boostContent = this.add.container(0, 0);
     this.boostItems = buildBoostsView({
       scene: this,
-      container: this.boostsPage,
+      container: this.boostContent,
       boosts: this.state.boosts,
+      layout: this.boostLayout,
       onPointerDown: (pointer) => this.beginPageSwipe(pointer),
       onBuy: (boost) => this.buyBoost(boost),
     });
@@ -206,33 +255,36 @@ export class ClickerScene extends Phaser.Scene {
     this.settingsButtonIcon = settingsButton.icon;
     this.navTabs = buildBottomNavigation({ scene: this, navTop: this.navTop, navHeight: this.navHeight, onSelect: (index) => this.selectPage(index) });
     this.setupUpgradeViewportCamera();
-    this.upgradeScroll = new UpgradeScrollController({
+    this.setupBoostViewportCamera();
+
+    this.holdBuy = createHoldBuyController(this);
+    this.upgradeScroll = new ListScrollController({
       scene: this,
       layout: this.upgradeLayout,
       items: this.upgradeItems,
-      isEnabled: () => this.gameStarted,
-      onPointerMove: (pointer) => this.cancelUpgradeHoldOnMove(pointer),
-      onPointerUp: (pointer) => this.stopUpgradeHold(pointer.id),
+      isEnabled: () => this.gameStarted && this.activePage === 0,
+      onPointerMove: (pointer) => this.holdBuy.cancelUpgradeHoldOnMove(pointer),
+      onPointerUp: (pointer) => this.holdBuy.stopUpgradeHold(pointer.id),
     });
     this.upgradeScroll.setup();
-    this.setupPageSwipe();
-    this.setActivePage(1);
-
-    this.time.addEvent({
-      delay: LOOP_CONFIG.autoIncomeDelayMs,
-      loop: true,
-      callback: () => {
-        if (!this.gameStarted) {
-          return;
-        }
-
-        const gain = this.engine.tick();
-        if (gain.gt(0)) {
-          this.feedback.spawnFloatingText(`+${formatCoins(gain)}`, COLORS.positiveText, 300);
-          this.renderState();
-        }
+    this.boostScroll = new ListScrollController({
+      scene: this,
+      layout: this.boostLayout,
+      items: this.boostItems,
+      isEnabled: () => this.gameStarted && this.activePage === 2,
+      syncItem: (item, y) => {
+        item.background.y = y;
+        item.name.y = y - 22;
+        item.condition.y = y + 8;
+        item.effect.y = y + 30;
+        item.buyButton.y = y;
+        item.buyText.y = y;
       },
     });
+    this.boostScroll.setup();
+    setupPageSwipe(this);
+    this.setActivePage(1);
+    this.lastProgressAtMs = Date.now();
 
     this.time.addEvent({
       delay: LOOP_CONFIG.autoSaveDelayMs,
@@ -247,16 +299,11 @@ export class ClickerScene extends Phaser.Scene {
     });
 
     this.input.on('gameout', () => {
-      this.stopUpgradeHold();
-      if (this.gameStarted) {
-        this.persist();
-      }
+      this.holdBuy.stopUpgradeHold();
+      this.flushProgressAndSave();
     });
-    window.addEventListener('beforeunload', () => {
-      if (this.gameStarted) {
-        this.persist();
-      }
-    });
+
+    bindLifecyclePersistence(this);
 
     this.renderState();
 
@@ -280,12 +327,12 @@ export class ClickerScene extends Phaser.Scene {
   }
 
   startUpgradePurchase(upgrade, pointer) {
-    this.startUpgradeHold(upgrade.id, pointer);
+    this.holdBuy.startUpgradeHold(upgrade.id, pointer);
     this.beginPageSwipe(pointer);
   }
 
   finishUpgradePurchase(upgrade, pointer, moved) {
-    const boughtWhileHeld = this.stopUpgradeHold(pointer.id);
+    const boughtWhileHeld = this.holdBuy.stopUpgradeHold(pointer.id);
     if (!this.gameStarted || moved || boughtWhileHeld || this.activePage !== 0) {
       return;
     }
@@ -297,16 +344,36 @@ export class ClickerScene extends Phaser.Scene {
       return;
     }
 
-    const result = this.engine.tryBuyBoost(boost.id);
+    const buy = this.engine.tryBuyMetaUpgrade ?? this.engine.tryBuyBoost;
+    const result = buy.call(this.engine, boost.id);
     if (!result.ok) {
       this.cameras.main.shake(120, 0.004);
       return;
     }
 
     this.feedback.playPurchase();
-    this.feedback.spawnFloatingText(`PRODUCTION x${boost.multiplier}`, COLORS.positiveText, 520);
+    this.feedback.spawnFloatingText(getMetaUpgradeEffectText(boost), COLORS.positiveText, 520);
     this.renderState();
     this.persist();
+  }
+
+  tryBuyUpgrade(upgradeId, options = {}) {
+    if (!this.gameStarted) {
+      return false;
+    }
+
+    const result = this.engine.tryBuyUpgrade(upgradeId);
+
+    if (!result.ok) {
+      if (options.shakeOnFailure !== false) {
+        this.cameras.main.shake(120, 0.004);
+      }
+      return false;
+    }
+
+    this.feedback.playPurchase();
+    this.renderState();
+    return true;
   }
 
   toggleSetting(settingKey) {
@@ -352,73 +419,27 @@ export class ClickerScene extends Phaser.Scene {
     this.upgradeCamera.ignore(mainObjects);
   }
 
-  cancelUpgradeHoldOnMove(pointer) {
-    if (this.upgradeHold?.pointerId !== pointer.id || !pointer.isDown) {
-      return;
-    }
+  setupBoostViewportCamera() {
+    const { listLeft, listTop, listWidth, visibleListHeight } = this.boostLayout;
 
-    const moved = Phaser.Math.Distance.Between(this.upgradeHold.startX, this.upgradeHold.startY, pointer.x, pointer.y) > 14;
-    if (moved) {
-      this.stopUpgradeHold(pointer.id);
-    }
-  }
+    this.cameras.main.ignore(this.boostContent);
 
-  setupPageSwipe() {
-    this.input.on('pointerdown', (pointer) => {
-      this.beginPageSwipe(pointer);
-    });
+    this.boostCamera = this.cameras.add(listLeft, listTop, listWidth, visibleListHeight);
+    this.boostCamera.setBackgroundColor('rgba(0,0,0,0)');
+    this.boostCamera.setScroll(listLeft, listTop);
 
-    this.input.on('pointerup', (pointer) => {
-      if (!this.pageSwipeStart) {
-        this.pageSwipeStart = null;
-        return;
-      }
-
-      const deltaX = pointer.x - this.pageSwipeStart.x;
-      const deltaY = pointer.y - this.pageSwipeStart.y;
-      this.pageSwipeStart = null;
-
-      if (Math.abs(deltaX) < 70 || Math.abs(deltaX) < Math.abs(deltaY) * 1.25) {
-        return;
-      }
-
-      const direction = deltaX < 0 ? 1 : -1;
-      this.setActivePage(Phaser.Math.Clamp(this.activePage + direction, 0, 2));
-    });
-  }
-
-  beginPageSwipe(pointer) {
-    if (!this.gameStarted || this.activePage === 3 || this.offlineReturn || pointer.y >= this.navTop) {
-      return;
-    }
-
-    this.pageSwipeStart = { x: pointer.x, y: pointer.y };
+    const mainObjects = this.children.list.filter((obj) => obj !== this.boostContent);
+    this.boostCamera.ignore(mainObjects);
+    this.upgradeCamera.ignore(this.boostContent);
+    this.boostCamera.ignore(this.upgradeContent);
   }
 
   setActivePage(index) {
-    this.stopUpgradeHold();
-    this.activePage = Phaser.Math.Clamp(index, 0, 3);
-    const showStore = this.activePage === 0;
-    const showGame = this.activePage === 1;
-    const showBoosts = this.activePage === 2;
-    const showSettings = this.activePage === 3;
+    setActivePageHelper(this, index);
+  }
 
-    this.gamePage.setVisible(showGame);
-    this.storeTitle.setVisible(showStore);
-    this.upgradePanelBg.setVisible(showStore);
-    this.upgradeCamera.setVisible(this.gameStarted && showStore);
-    this.upgradeScroll.setVisible(showStore);
-    this.boostsPage.setVisible(showBoosts);
-    this.settingsPage.setVisible(showSettings);
-    this.settingsButtonBackground.setFillStyle(0x000000, 0);
-    this.settingsButtonBackground.setStrokeStyle(1.5, showSettings ? COLORS.accentActive : COLORS.accent, showSettings ? 1 : 0.9);
-    this.settingsButtonIcon.setColor(showSettings ? COLORS.accentActiveText : COLORS.accentText);
-
-    this.navTabs.forEach((tab, tabIndex) => {
-      const active = tabIndex === this.activePage;
-      tab.indicator.setVisible(active);
-      tab.text.setColor(active ? COLORS.activeText : COLORS.inactiveText);
-    });
+  beginPageSwipe(pointer) {
+    beginPageSwipeHelper(this, pointer);
   }
 
   renderSettings() {
@@ -431,253 +452,64 @@ export class ClickerScene extends Phaser.Scene {
     });
   }
 
-  showOfflineReturn(offline) {
-    if (this.offlineReturn) {
+  fitHudText(textObject) {
+    if (!textObject || !this.hudMaxWidth) {
       return;
     }
 
-    const width = this.scale.width;
-    const height = this.scale.height;
-    const overlay = this.add.rectangle(width / 2, height / 2, width, height, COLORS.overlay, 0.78).setInteractive();
-    const panel = this.add.rectangle(width / 2, height / 2, width - 48, 380, COLORS.overlayPanel, 1).setStrokeStyle(3, COLORS.overlayBorder);
-    const title = this.add
-      .text(width / 2, height / 2 - 128, UI_TEXT.welcomeBack, {
-        fontFamily: FONT_FAMILIES.display,
-        fontSize: '32px',
-        color: COLORS.accentText,
-      })
-      .setOrigin(0.5);
-    const awayText = this.add
-      .text(width / 2, height / 2 - 68, `Away for ${formatOfflineDuration(offline.elapsedSeconds)}`, {
-        fontFamily: FONT_FAMILIES.body,
-        fontSize: '23px',
-        color: COLORS.overlayText,
-      })
-      .setOrigin(0.5);
-    const earningsLabel = this.add
-      .text(width / 2, height / 2 - 12, UI_TEXT.offlineEarnings, {
-        fontFamily: FONT_FAMILIES.body,
-        fontSize: '18px',
-        color: COLORS.overlayMutedText,
-        fontStyle: '800',
-      })
-      .setOrigin(0.5);
-    const earnings = this.add
-      .text(width / 2, height / 2 + 34, `+${formatCoins(offline.gain)} coins`, {
-        fontFamily: FONT_FAMILIES.display,
-        fontSize: '30px',
-        color: COLORS.positiveText,
-      })
-      .setOrigin(0.5);
-    const continueButton = this.add.rectangle(width / 2, height / 2 + 120, width - 104, 66, COLORS.primary).setStrokeStyle(2, COLORS.primaryBorder).setInteractive({ useHandCursor: true });
-    const continueText = this.add
-      .text(width / 2, height / 2 + 120, UI_TEXT.continue, {
-        fontFamily: FONT_FAMILIES.display,
-        fontSize: '22px',
-        color: COLORS.primaryText,
-      })
-      .setOrigin(0.5);
-
-    this.offlineReturn = this.add.container(0, 0, [overlay, panel, title, awayText, earningsLabel, earnings, continueButton, continueText]).setDepth(3000);
-    this.upgradeCamera.ignore(this.offlineReturn);
-
-    continueButton.on('pointerup', () => {
-      this.offlineReturn?.destroy(true);
-      this.offlineReturn = null;
-    });
-  }
-
-  startUpgradeHold(upgradeId, pointer) {
-    this.stopUpgradeHold();
-    this.upgradeHold = {
-      upgradeId,
-      pointerId: pointer.id,
-      startX: pointer.x,
-      startY: pointer.y,
-      startedAt: this.time.now,
-      didRepeat: false,
-    };
-    this.upgradeHoldTimer = this.time.delayedCall(550, () => this.runUpgradeHold());
-  }
-
-  runUpgradeHold() {
-    if (!this.upgradeHold || this.activePage !== 0 || !this.gameStarted) {
-      this.stopUpgradeHold();
-      return;
+    textObject.setScale(1);
+    const width = textObject.width;
+    if (width > this.hudMaxWidth) {
+      textObject.setScale(this.hudMaxWidth / width);
     }
-
-    const bought = this.tryBuyUpgrade(this.upgradeHold.upgradeId, { shakeOnFailure: false });
-    if (!bought) {
-      this.stopUpgradeHold();
-      return;
-    }
-
-    this.upgradeHold.didRepeat = true;
-    const elapsed = this.time.now - this.upgradeHold.startedAt - 550;
-    const nextDelay = Math.max(100, 500 * Math.exp(-elapsed / 1500));
-    this.upgradeHoldTimer = this.time.delayedCall(nextDelay, () => this.runUpgradeHold());
-  }
-
-  stopUpgradeHold(pointerId = null) {
-    if (!this.upgradeHold) {
-      if (pointerId !== null && this.completedUpgradeHoldPointerId === pointerId) {
-        this.completedUpgradeHoldPointerId = null;
-        return true;
-      }
-      return false;
-    }
-
-    if (pointerId !== null && this.upgradeHold.pointerId !== pointerId) {
-      return false;
-    }
-
-    const didRepeat = this.upgradeHold.didRepeat;
-    if (didRepeat) {
-      this.completedUpgradeHoldPointerId = this.upgradeHold.pointerId;
-    }
-    this.upgradeHoldTimer?.remove(false);
-    this.upgradeHoldTimer = null;
-    this.upgradeHold = null;
-    return didRepeat;
-  }
-
-  tryBuyUpgrade(upgradeId, options = {}) {
-    if (!this.gameStarted) {
-      return false;
-    }
-
-    const result = this.engine.tryBuyUpgrade(upgradeId);
-
-    if (!result.ok) {
-      if (options.shakeOnFailure !== false) {
-        this.cameras.main.shake(120, 0.004);
-      }
-      return false;
-    }
-
-    if (result.milestoneReached) {
-      this.feedback.spawnFloatingText(UI_TEXT.milestoneReached, COLORS.milestoneText, 300);
-    }
-
-    this.feedback.playPurchase(Boolean(result.milestoneReached));
-    this.renderState();
-    return true;
   }
 
   renderState() {
-    this.coinsText.setText(`${formatCoins(this.state.coins)} coins`);
+    this.coinsText.setText(`${formatCoins(this.state.coins, { rate: this.state.perSecond })} coins`);
     this.statsText.setText(`per tap: ${formatCoins(this.state.perClick)} | per second: ${formatCoins(this.state.perSecond)}`);
-
+    this.fitHudText(this.coinsText);
+    this.fitHudText(this.statsText);
     this.renderSettings();
-    this.updateUpgradeListLayout();
+    updateStoreListLayout(this);
+    renderStoreRows(this);
+    updateMetaListLayout(this);
+  }
 
-    this.upgradeItems.forEach((item) => {
-      const upgrade = this.state.upgrades.find((entry) => entry.id === item.id);
-      const cost = this.engine.getUpgradeCost(item.id);
-      if (item.isLockedPreview) {
-        item.label.setText('???');
-        item.info.setText(UI_TEXT.unlockHint);
-        item.rowBg.setFillStyle(COLORS.lockedRow, 0.95).setStrokeStyle(2, COLORS.lockedRowBorder);
-        item.label.setColor(COLORS.lockedText);
-        item.info.setColor(COLORS.lockedInfo);
-        item.buyButton.setFillStyle(COLORS.lockedButton).setStrokeStyle(2, COLORS.lockedButtonBorder);
-        item.buyText.setText(UI_TEXT.locked).setColor(COLORS.lockedButtonText);
-        item.stars.forEach((star) => star.setVisible(false));
-        return;
-      }
-
-      const canBuy = this.state.coins.gte(cost);
-      const effectLabel = upgrade.type === 'click' ? `+${upgrade.baseValue} tap power` : `+${upgrade.baseValue} per second`;
-
-      item.rowBg.setFillStyle(COLORS.upgradeRow, 0.95).setStrokeStyle(2, COLORS.upgradeRowBorder);
-      item.label.setColor(COLORS.upgradeText);
-      item.info.setColor(COLORS.upgradeInfo);
-      item.label.setText(`${upgrade.label} Lv.${upgrade.level}`);
-      item.info.setText(`${effectLabel}  |  cost ${formatCoins(cost)}`);
-      item.buyText.setText(UI_TEXT.buy);
-
-      const reachedMilestones = getReachedMilestones(upgrade);
-      item.stars.forEach((star, index) => {
-        star.setVisible(index < reachedMilestones.length && item.rowBg.visible);
-        star.x = item.label.x + item.label.width + 8 + index * 17;
-      });
-
-      item.buyButton.setFillStyle(canBuy ? COLORS.primary : COLORS.unavailableButton);
-      item.buyText.setColor(canBuy ? COLORS.primaryText : COLORS.unavailableText);
-    });
-
-    const highestGeneratorLevel = this.state.upgrades
-      .filter((upgrade) => upgrade.type === 'auto')
-      .reduce((highest, upgrade) => Math.max(highest, upgrade.level), 0);
-
-    this.boostItems.forEach((item) => {
-      const boost = this.state.boosts.find((entry) => entry.id === item.id);
-      const unlocked = highestGeneratorLevel >= boost.requiredLevel;
-      const canBuy = unlocked && !boost.purchased && this.state.coins.gte(boost.cost);
-
-      item.condition.setText(boost.purchased ? `Active · Production x${boost.multiplier}` : `Requires generator Lv.${boost.requiredLevel}`);
-      item.condition.setColor(boost.purchased ? COLORS.positiveText : COLORS.mutedText);
-      item.buyText.setText(boost.purchased ? UI_TEXT.owned : unlocked ? formatCoins(boost.cost) : UI_TEXT.locked);
-      item.buyButton.setFillStyle(boost.purchased ? COLORS.success : canBuy ? COLORS.primary : COLORS.disabled);
-      item.buyButton.setStrokeStyle(2, boost.purchased ? COLORS.successBorder : canBuy ? COLORS.primaryBorder : COLORS.disabledBorder);
-      item.buyText.setColor(boost.purchased ? COLORS.successText : canBuy ? COLORS.primaryText : COLORS.disabledText);
-    });
+  updateBoostListLayout() {
+    updateMetaListLayout(this);
   }
 
   updateUpgradeListLayout() {
-    const { rowHeight, rowGap, listTop, visibleListHeight } = this.upgradeLayout;
-    const step = rowHeight + rowGap;
-    const nextLockedUpgrade = this.state.upgrades.find((upgrade) => !isUpgradeUnlocked(upgrade, this.state.upgrades));
-    let visibleIndex = 0;
+    updateStoreListLayout(this);
+  }
 
-    this.upgradeItems.forEach((item) => {
-      const upgrade = this.state.upgrades.find((entry) => entry.id === item.id);
-      const unlocked = isUpgradeUnlocked(upgrade, this.state.upgrades);
-      item.isLockedPreview = !unlocked && item.id === nextLockedUpgrade?.id;
-      const visible = unlocked || item.isLockedPreview;
-      const objects = [item.rowBg, item.label, item.info, ...item.stars, item.buyButton, item.buyText];
+  update() {
+    this.applyWallClockProgress();
 
-      objects.forEach((object) => object.setVisible(visible));
-      if (item.buyButton.input) {
-        item.buyButton.input.enabled = unlocked;
-      }
+    const onTapPage = this.gameStarted && this.activePage === 1;
+    const cursorCount = onTapPage ? getAutoTapCursorCount(this.state) : 0;
+    this.autoTapCursors.layer.setVisible(onTapPage);
+    this.autoTapCursors.updateOrbit(cursorCount, this.time.now);
+  }
 
-      if (visible) {
-        item.baseY = listTop + rowHeight / 2 + visibleIndex * step;
-        visibleIndex += 1;
-      }
-    });
+  applyWallClockProgress(options = {}) {
+    applyWallClockProgressHelper(this, options);
+  }
 
-    const listHeight = visibleIndex > 0 ? visibleIndex * rowHeight + (visibleIndex - 1) * rowGap : 0;
-    this.upgradeScroll.updateMetrics(listHeight);
+  flushProgressAndSave() {
+    flushProgressAndSaveHelper(this);
   }
 
   persist() {
     saveGameState(this.engine.snapshot());
   }
 
+  showOfflineReturn(offline) {
+    showOfflineReturnOverlay(this, offline);
+  }
+
   showStartOverlay() {
-    const width = this.scale.width;
-    const height = this.scale.height;
-
-    this.startOverlayBg = this.add.rectangle(width / 2, height / 2, width, height, COLORS.startOverlay, 0.88).setDepth(2000);
-    this.startOverlayText = this.add
-      .text(width / 2, height / 2, UI_TEXT.start, {
-        fontFamily: FONT_FAMILIES.display,
-        fontSize: '52px',
-        color: COLORS.text,
-        stroke: COLORS.startStroke,
-        strokeThickness: 6,
-      })
-      .setOrigin(0.5)
-      .setDepth(2001);
-
-    this.startOverlayHitArea = this.add
-      .zone(width / 2, height / 2, width, height)
-      .setInteractive({ useHandCursor: true })
-      .setDepth(2002);
-
-    this.startOverlayHitArea.on('pointerdown', () => this.startGame());
+    showStartOverlayUI(this, () => this.startGame());
   }
 
   startGame() {
@@ -686,11 +518,7 @@ export class ClickerScene extends Phaser.Scene {
     }
 
     this.gameStarted = true;
-
-    this.startOverlayBg?.destroy();
-    this.startOverlayText?.destroy();
-    this.startOverlayHitArea?.destroy();
-
+    destroyStartOverlay(this);
     this.renderState();
     this.setActivePage(this.activePage);
   }

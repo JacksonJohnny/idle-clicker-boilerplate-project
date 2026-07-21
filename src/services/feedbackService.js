@@ -1,7 +1,7 @@
 export function createFeedbackService(scene, settings) {
   let audioContext = null;
 
-  function playPurchase(milestoneReached = false) {
+  function playPurchase() {
     if (settings.soundEnabled) {
       const AudioContextClass = window.AudioContext || window.webkitAudioContext;
       if (AudioContextClass) {
@@ -15,8 +15,8 @@ export function createFeedbackService(scene, settings) {
         const now = audioContext.currentTime;
 
         oscillator.type = 'sine';
-        oscillator.frequency.setValueAtTime(milestoneReached ? 620 : 480, now);
-        oscillator.frequency.exponentialRampToValueAtTime(milestoneReached ? 980 : 720, now + 0.09);
+        oscillator.frequency.setValueAtTime(480, now);
+        oscillator.frequency.exponentialRampToValueAtTime(720, now + 0.09);
         gain.gain.setValueAtTime(0.0001, now);
         gain.gain.exponentialRampToValueAtTime(0.11, now + 0.012);
         gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.11);
@@ -27,13 +27,13 @@ export function createFeedbackService(scene, settings) {
     }
 
     if (settings.vibrationEnabled && navigator.vibrate) {
-      navigator.vibrate(milestoneReached ? [18, 24, 24] : 12);
+      navigator.vibrate(12);
     }
   }
 
-  function spawnFloatingText(text, color = '#ffffff', y = 355) {
+  function spawnFloatingText(text, color = '#ffffff', y = 355, xOffset = 0) {
     const floatText = scene.add
-      .text(scene.scale.width / 2, y, text, {
+      .text(scene.scale.width / 2 + xOffset, y, text, {
         fontFamily: 'Nunito, sans-serif',
         fontSize: '34px',
         color,
@@ -42,6 +42,7 @@ export function createFeedbackService(scene, settings) {
       .setOrigin(0.5);
 
     scene.upgradeCamera?.ignore(floatText);
+    scene.boostCamera?.ignore(floatText);
     scene.tweens.add({
       targets: floatText,
       y: y - 70,
