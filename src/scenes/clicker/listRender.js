@@ -114,7 +114,7 @@ export function renderStoreRows(scene) {
     item.label.setText(upgrade.label);
     item.level?.setText(`Lv.${upgrade.level}`).setVisible(item.rowBg.visible);
     item.info.setText(`${effectLabel}  |  cost ${formatCoins(cost)}`);
-    item.buyText.setText(amount > 1 || buyAmount === 'max' ? `BUY ${amount}` : UI_TEXT.buy);
+    item.buyText.setText(amount > 1 ? `BUY ${amount}` : UI_TEXT.buy);
 
     const starCount = getGeneratorEfficiencyStarCount(scene.state, upgrade.id);
     const starStartX = item.label.x + item.label.width + 10;

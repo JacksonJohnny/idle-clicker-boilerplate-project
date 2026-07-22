@@ -52,7 +52,7 @@ Keep save field `boosts` stable so forks and old saves stay compatible. Rename U
 - Achievements → permanent idle %
 - Prestige → Ascension Tokens (+1% idle each), with confirm dialog
 - STATUS tab (stats, multipliers, achievements)
-- Bottom nav with ≥44px hit targets + overflow "…" when tabs grow
+- Bottom nav with full tab labels + ≥44px hit targets; overflow "…" only when tabs grow past 5
 - Sound settings
 
 ## Suggested expansion points

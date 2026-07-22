@@ -113,7 +113,8 @@ describe('saveMigrations', () => {
     expect(normalized.coinsThisAscension).toBe('10');
   });
 
-  it('preserves full progress when migrating a rich v6 save to v8', () => {
+  it('preserves full progress when migrating a rich v6 save to current', () => {
+    // A real v6 save already passed star→efficiency compensation in v3; boosts are stored.
     const { state, version } = migrateSaveState(
       {
         coins: '500000',
@@ -127,6 +128,8 @@ describe('saveMigrations', () => {
         ],
         boosts: [
           { id: 'upgrade-1-efficiency-1', purchased: true },
+          { id: 'upgrade-1-efficiency-2', purchased: true },
+          { id: 'upgrade-2-efficiency-1', purchased: true },
           { id: 'first-surge', purchased: true },
           { id: 'geral-upgrade-1', purchased: true },
         ],

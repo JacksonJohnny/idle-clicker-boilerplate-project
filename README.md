@@ -25,7 +25,7 @@ Guia curto de fork/rebrand: [`BOILERPLATE.md`](BOILERPLATE.md).
 - Idle por **relógio de parede** + ganhos offline (cap opcional; padrão **sem teto**).
 - Achievements com bônus permanente de idle %.
 - Prestige → **Ascension Tokens** (quadrado roxo) com diálogo de confirmação.
-- Abas: UPGRADE → STORE → TAP → STATUS → PRESTIGE (+ settings); swipe + nav ≥44px.
+- Abas: UPGRADE → STORE → TAP → STATUS → PRESTIGE (+ settings); labels **completos** na nav (≥44px; overflow `…` só se passar de 5 abas).
 - Save versionado (`SAVE_VERSION = 10`) com migrações e checksum.
 - Build web / Android / iOS; testes Vitest (economia, prestige, achievements, save).
 
@@ -109,10 +109,10 @@ Arquivos-chave:
 - Idle: geradores `type: 'auto'` × meta × achievements × Ascension Tokens.
 - Custo: `baseCost * growth^level` (floor).
 - Meta-upgrades (compra única; somem da lista ao comprar):
-  - `generator` — own **5 / 25 / 50 / 100 / 200** → produção daquele gerador ×2
+  - `generator` — own **5 / 25 / 50 / 100 / 200** → produção daquele gerador ×2 (compra na UPGRADE; **não** é auto-granted por owned no load)
   - `global` — own N total → produção global ×M
   - `click_per_second` — N taps → tap +% da produção idle
-  - `base_multiplier` — lifetime coins → produção global ×(1+%)
+  - `base_multiplier` — lifetime coins (unlocks **únicos** e progressivos em `baseMultiplierTiers.json`) → produção global ×(1+%)
 - Prestige: soft reset → Ascension Tokens (+1% idle cada).
 - Achievements: milestones → idle % permanente.
 
@@ -152,12 +152,13 @@ Ordem das abas: **UPGRADE → STORE → TAP → STATUS → PRESTIGE** (+ setting
 | STATUS | Stats, multiplicadores, achievements |
 | PRESTIGE | Tokens + soft reset confirmado |
 
-Swipe horizontal entre páginas; scroll vertical nas listas. Overlay “Click to start” em save novo. List cameras escondidas enquanto modal está aberto.
+Swipe horizontal entre páginas; scroll vertical nas listas. Nav inferior com nomes completos (`UPGRADE`, `STORE`, …). Overlay “Click to start” em save novo. List cameras escondidas enquanto modal está aberto.
 
 ### Compra na STORE
 
 - Preferência salva em settings (`buyAmount`).
 - BUY aplica o modo ativo; `MAX` = máximo acessível com coins atuais.
+- Compras da STORE/UPGRADE disparam save imediato (além do autosave).
 - Sem hold-to-buy.
 
 ### Feedback
@@ -242,10 +243,11 @@ Autosave 10s + flush em blur / `pagehide` / `beforeunload`. Reset: `?resetSave=1
 5. Geradores — `src/data/generators.js`
 6. Clique / Auto Tap — `src/data/upgrades.js` + `src/lib/autoTapProgress.js`
 7. Meta-upgrades — `src/data/metaUpgrades.js` (save continua em `boosts`)
-8. Prestige — `src/lib/prestige.js`
-9. Achievements — `src/data/achievements.js`
-10. Fórmulas — `src/lib/clickerMath.js`
-11. Migrações — `src/services/saveMigrations.js`
+8. BASE MULTIPLIER tiers — `src/data/baseMultiplierTiers.json`
+9. Prestige — `src/lib/prestige.js`
+10. Achievements — `src/data/achievements.js`
+11. Fórmulas — `src/lib/clickerMath.js`
+12. Migrações — `src/services/saveMigrations.js`
 
 Depois: `npm test` && `npm run build`.
 

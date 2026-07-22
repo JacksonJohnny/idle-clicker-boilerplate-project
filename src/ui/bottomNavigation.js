@@ -6,17 +6,9 @@ export const MIN_TAB_HIT = 44;
 /** When more tabs than this, show overflow "…" for the rest. */
 export const MAX_VISIBLE_TABS = 5;
 
-function resolveTabLabels(tabCount, tabWidth) {
-  const full = UI_TEXT.tabs;
-  const short = UI_TEXT.tabsShort ?? full;
-  if (tabWidth < 72 || tabCount > 4) {
-    return short;
-  }
-  return full;
-}
-
 /**
  * Bottom nav with ≥44px hit targets.
+ * Always uses full tab labels (no short abbreviations).
  * If tabs grow past MAX_VISIBLE_TABS, shows the first N-1 + an overflow "…" control.
  */
 export function buildBottomNavigation({ scene, navTop, navHeight, onSelect, onOverflow }) {
@@ -33,8 +25,8 @@ export function buildBottomNavigation({ scene, navTop, navHeight, onSelect, onOv
   const visibleCount = needsOverflow ? MAX_VISIBLE_TABS - 1 : tabs.length;
   const slotCount = needsOverflow ? MAX_VISIBLE_TABS : tabs.length;
   const tabWidth = Math.max(MIN_TAB_HIT, width / slotCount);
-  const labels = resolveTabLabels(tabs.length, tabWidth);
   const overflowLabel = UI_TEXT.tabsOverflow ?? '…';
+  const labelFontSize = tabWidth < 96 ? '11px' : tabs.length > 4 ? '12px' : '18px';
 
   const tabEntries = [];
 
@@ -45,9 +37,9 @@ export function buildBottomNavigation({ scene, navTop, navHeight, onSelect, onOv
       .zone(x, navTop + height / 2, tabWidth, height)
       .setInteractive({ useHandCursor: true });
     const text = scene.add
-      .text(x, navTop + height / 2 + 4, labels[index] ?? tabs[index], {
+      .text(x, navTop + height / 2 + 4, tabs[index], {
         fontFamily: FONT_FAMILIES.body,
-        fontSize: tabWidth < 80 ? '12px' : tabs.length > 3 ? '13px' : '18px',
+        fontSize: labelFontSize,
         color: COLORS.inactiveText,
         fontStyle: '800',
       })

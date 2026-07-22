@@ -21,8 +21,6 @@ export const UI_TEXT = {
   ascensionTokens: 'Ascension Tokens',
   settingsTitle: 'SETTINGS',
   tabs: ['UPGRADE', 'STORE', 'TAP', 'STATUS', 'PRESTIGE'],
-  /** Shorter labels when tab width is tight. */
-  tabsShort: ['UPG', 'STORE', 'TAP', 'STAT', 'PREST'],
   tabsOverflow: '…',
   sound: 'SOUND',
   soundDescription: 'Sound effects for purchases',

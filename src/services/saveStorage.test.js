@@ -112,7 +112,10 @@ describe('saveStorage', () => {
       totalCoinsEarned: '2000',
       totalClicks: 12,
       upgrades: [{ id: 'upgrade-1', level: 10 }],
-      boosts: [{ id: 'cps-tap-1', purchased: true }],
+      boosts: [
+        { id: 'cps-tap-1', purchased: true },
+        { id: 'upgrade-1-efficiency-1', purchased: true },
+      ],
       savedAt: 1_700_000_000_000,
     };
     const payload = JSON.stringify(state);

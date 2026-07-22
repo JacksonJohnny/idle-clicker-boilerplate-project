@@ -6,7 +6,6 @@ import { calculateAscensionTokenGain, getAscensionTokenIdleMultiplier } from './
 import {
   BOOST_ID_ALIASES,
   UPGRADE_ID_ALIASES,
-  compensateLegacyMilestoneStars,
   normalizeSaveState,
 } from '../services/saveMigrations.js';
 import { getAutoTapCursorTier, getMaxAutoTapCursorSlots } from './autoTapProgress.js';
@@ -425,7 +424,8 @@ function mergeStateFromSave(state, loaded) {
   }
 
   // Remap legacy ids (generator-N → upgrade-N, efficiency aliases) before merge.
-  const normalized = compensateLegacyMilestoneStars(normalizeSaveState(loaded));
+  // Do NOT re-run legacy star compensation here — that belongs only in old migrations.
+  const normalized = normalizeSaveState(loaded);
 
   state.coins = normalized.coins !== undefined ? toDecimal(normalized.coins) : state.coins;
   state.totalCoinsEarned =
@@ -459,16 +459,6 @@ function mergeStateFromSave(state, loaded) {
   state.boosts = state.boosts.map((boost) => {
     const existing = findLoadedBoost(normalized.boosts, boost.id);
     return { ...boost, purchased: existing?.purchased === true };
-  });
-
-  // Re-apply star → efficiency grants from restored generator levels (idempotent).
-  const withStars = compensateLegacyMilestoneStars({
-    upgrades: state.upgrades.map((upgrade) => ({ id: upgrade.id, level: upgrade.level })),
-    boosts: state.boosts.map((boost) => ({ id: boost.id, purchased: boost.purchased })),
-  });
-  state.boosts = state.boosts.map((boost) => {
-    const granted = withStars.boosts.find((entry) => entry.id === boost.id);
-    return { ...boost, purchased: boost.purchased || granted?.purchased === true };
   });
 
   recalculateState(state);

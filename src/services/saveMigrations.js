@@ -320,7 +320,7 @@ export function migrateSaveState(state, fromVersion = 1) {
   }
 
   return {
-    state: compensateLegacyMilestoneStars(next),
+    state: next,
     version: SAVE_VERSION,
   };
 }

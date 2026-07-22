@@ -56,7 +56,7 @@ describe('clickerMath', () => {
     expect(controller.state.perSecond.toString()).toBe('10.1');
   });
 
-  it('restores efficiency meta upgrades from aliased generator ids and star thresholds', () => {
+  it('remaps aliased generator ids and keeps only purchased efficiency from save', () => {
     const controller = createController();
     controller.hydrate({
       coins: '0',
@@ -66,8 +66,9 @@ describe('clickerMath', () => {
 
     expect(controller.state.upgrades.find((item) => item.id === 'upgrade-1')?.level).toBe(50);
     expect(controller.state.boosts.find((item) => item.id === 'upgrade-1-efficiency-1')?.purchased).toBe(true);
-    expect(controller.state.boosts.find((item) => item.id === 'upgrade-1-efficiency-2')?.purchased).toBe(true);
-    expect(controller.state.boosts.find((item) => item.id === 'upgrade-1-efficiency-3')?.purchased).toBe(true);
+    // Ownership alone must not auto-grant later efficiency tiers on hydrate.
+    expect(controller.state.boosts.find((item) => item.id === 'upgrade-1-efficiency-2')?.purchased).toBe(false);
+    expect(controller.state.boosts.find((item) => item.id === 'upgrade-1-efficiency-3')?.purchased).toBe(false);
   });
 
   it('applies generator efficiency meta upgrades', () => {
@@ -91,6 +92,10 @@ describe('clickerMath', () => {
       coins: '100000000',
       totalClicks: 100,
       upgrades: [{ id: 'upgrade-1', level: 25 }],
+      boosts: [
+        { id: 'upgrade-1-efficiency-1', purchased: true },
+        { id: 'upgrade-1-efficiency-2', purchased: true },
+      ],
     });
 
     expect(controller.tryBuyMetaUpgrade('global-production-1')).toMatchObject({ ok: true });

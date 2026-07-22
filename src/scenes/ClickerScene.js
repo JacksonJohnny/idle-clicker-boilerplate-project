@@ -278,6 +278,7 @@ export class ClickerScene extends Phaser.Scene {
 
     this.feedback.playPurchase();
     this.renderState();
+    this.persist();
     return true;
   }
 
