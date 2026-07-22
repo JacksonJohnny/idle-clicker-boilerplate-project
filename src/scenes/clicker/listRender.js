@@ -2,7 +2,9 @@ import { COLORS } from '../../config/theme.js';
 import { UI_TEXT } from '../../config/uiText.js';
 import {
   formatCoins,
+  formatIdleSharePercent,
   getGeneratorEfficiencyStarCount,
+  getGeneratorIdleShare,
   isMetaUpgradeUnlocked,
   isUpgradeUnlocked,
 } from '../../lib/clickerMath.js';
@@ -100,12 +102,19 @@ export function renderStoreRows(scene) {
 
     const amount = preview?.amount ?? 1;
     const canBuy = preview?.canBuy === true;
-    const effectLabel =
+    let effectLabel =
       upgrade.type === 'click'
         ? UI_TEXT.tapPowerEffect.replace('{value}', String(upgrade.baseValue))
         : upgrade.type === 'auto_tap'
           ? getAutoTapEffectLabel(upgrade)
           : UI_TEXT.generatorEffect.replace('{value}', String(upgrade.baseValue));
+
+    if (upgrade.type === 'auto') {
+      const shareLabel = formatIdleSharePercent(getGeneratorIdleShare(scene.state, upgrade.id));
+      if (shareLabel) {
+        effectLabel += UI_TEXT.generatorIdleShare.replace('{pct}', shareLabel);
+      }
+    }
 
     item.rowBg.setFillStyle(COLORS.upgradeRow, 0.95).setStrokeStyle(2, COLORS.upgradeRowBorder);
     item.label.setColor(COLORS.upgradeText);
@@ -130,6 +139,7 @@ export function renderStoreRows(scene) {
     });
 
     item.buyButton.setFillStyle(canBuy ? COLORS.primary : COLORS.unavailableButton);
+    item.buyButton.setStrokeStyle(2, canBuy ? COLORS.primaryBorder : COLORS.disabledBorder);
     item.buyText.setColor(canBuy ? COLORS.primaryText : COLORS.unavailableText);
   });
 }

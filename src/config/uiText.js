@@ -58,4 +58,6 @@ export const UI_TEXT = {
   tapPowerEffect: '+{value} tap power',
   autoTapEffect: '+{value} click / {seconds}s',
   generatorEffect: '+{value} coins / sec',
+  /** Appended when this generator contributes idle share, e.g. ` (12%)`. */
+  generatorIdleShare: ' ({pct})',
 };

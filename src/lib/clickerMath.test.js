@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { META_UPGRADES } from '../data/metaUpgrades.js';
 import { CLICKER_GENERATORS } from '../data/generators.js';
 import { CLICK_UPGRADES } from '../data/upgrades.js';
-import { createClickerController, formatCoins, getGeneratorEfficiencyStarCount, isUpgradeUnlocked } from './clickerMath.js';
+import { createClickerController, formatCoins, formatIdleSharePercent, getGeneratorEfficiencyStarCount, getGeneratorIdleShare, isUpgradeUnlocked } from './clickerMath.js';
 
 const createController = () => createClickerController([...CLICK_UPGRADES, ...CLICKER_GENERATORS], META_UPGRADES);
 
@@ -54,6 +54,31 @@ describe('clickerMath', () => {
     expect(result.ok).toBe(true);
     // Own 10 G1 unlocks Starter Pack (+1% idle)
     expect(controller.state.perSecond.toString()).toBe('10.1');
+  });
+
+  it('reports idle production share per generator', () => {
+    const controller = createController();
+    controller.hydrate({
+      coins: '0',
+      upgrades: [
+        { id: 'upgrade-1', level: 10 },
+        { id: 'upgrade-2', level: 5 },
+      ],
+    });
+
+    // upgrade-1 base 1 → 10; upgrade-2 base 8 → 40; total 50 → 20% / 80%
+    expect(getGeneratorIdleShare(controller.state, 'upgrade-1')).toBeCloseTo(0.2, 5);
+    expect(getGeneratorIdleShare(controller.state, 'upgrade-2')).toBeCloseTo(0.8, 5);
+    expect(getGeneratorIdleShare(controller.state, 'upgrade-3')).toBeNull();
+    expect(formatIdleSharePercent(0.2)).toBe('20%');
+    expect(formatIdleSharePercent(0.012)).toBe('1.2%');
+    expect(formatIdleSharePercent(0.0008)).toBe('0.08%');
+    expect(formatIdleSharePercent(null)).toBeNull();
+  });
+
+  it('hides idle share when no generators produce', () => {
+    const controller = createController();
+    expect(getGeneratorIdleShare(controller.state, 'upgrade-1')).toBeNull();
   });
 
   it('remaps aliased generator ids and keeps only purchased efficiency from save', () => {

@@ -144,50 +144,117 @@ export function destroyStartOverlay(scene) {
 }
 
 /** Generic confirm modal (prestige, destructive actions). */
-export function showConfirmDialog(scene, { title, body, confirmLabel, cancelLabel, onConfirm, onCancel }) {
+export function showConfirmDialog(
+  scene,
+  { title, body, confirmLabel, cancelLabel, onConfirm, onCancel, danger = false, confirmDelaySeconds = 0 },
+) {
   if (scene.confirmDialog) {
     return;
   }
 
   const width = scene.scale.width;
   const height = scene.scale.height;
-  const overlay = scene.add.rectangle(width / 2, height / 2, width, height, COLORS.overlay, 0.78).setInteractive();
-  const panel = scene.add
-    .rectangle(width / 2, height / 2, width - 48, 420, COLORS.overlayPanel, 1)
-    .setStrokeStyle(3, COLORS.overlayBorder);
+  const cx = width / 2;
+  const cy = height / 2;
+  const panelWidth = Math.min(width - 48, 460);
+  const contentWidth = panelWidth - 56;
+  const padY = 40;
+  const gapTitleBody = 28;
+  const gapBodyButtons = 40;
+  const gapButtons = 18;
+  const confirmH = 60;
+  const cancelH = 52;
+
+  const readyFill = danger ? COLORS.danger : COLORS.primary;
+  const readyBorder = danger ? COLORS.dangerBorder : COLORS.primaryBorder;
+  const readyTextColor = danger ? COLORS.dangerText : COLORS.primaryText;
+  const delaySeconds = Math.max(0, Math.floor(confirmDelaySeconds));
+
   const titleText = scene.add
-    .text(width / 2, height / 2 - 150, title, {
+    .text(0, 0, title, {
       fontFamily: FONT_FAMILIES.display,
       fontSize: '28px',
       color: COLORS.accentText,
+      align: 'center',
+      wordWrap: { width: contentWidth },
     })
     .setOrigin(0.5);
   const bodyText = scene.add
-    .text(width / 2, height / 2 - 40, body, {
+    .text(0, 0, body, {
       fontFamily: FONT_FAMILIES.body,
       fontSize: '18px',
       color: COLORS.overlayText,
       align: 'center',
-      wordWrap: { width: width - 120 },
+      wordWrap: { width: contentWidth },
     })
     .setOrigin(0.5);
-  const confirmButton = scene.add
-    .rectangle(width / 2, height / 2 + 100, width - 104, 60, COLORS.primary)
-    .setStrokeStyle(2, COLORS.primaryBorder)
-    .setInteractive({ useHandCursor: true });
+
+  const contentHeight =
+    titleText.height + gapTitleBody + bodyText.height + gapBodyButtons + confirmH + gapButtons + cancelH;
+  const panelHeight = contentHeight + padY * 2;
+  const stackTop = cy - contentHeight / 2;
+
+  const titleY = stackTop + titleText.height / 2;
+  const bodyY = titleY + titleText.height / 2 + gapTitleBody + bodyText.height / 2;
+  const confirmY = bodyY + bodyText.height / 2 + gapBodyButtons + confirmH / 2;
+  const cancelY = confirmY + confirmH / 2 + gapButtons + cancelH / 2;
+
+  titleText.setPosition(cx, titleY);
+  bodyText.setPosition(cx, bodyY);
+
+  const overlay = scene.add.rectangle(cx, cy, width, height, COLORS.overlay, 0.78).setInteractive();
+  const panel = scene.add
+    .rectangle(cx, cy, panelWidth, panelHeight, COLORS.overlayPanel, 1)
+    .setStrokeStyle(3, COLORS.overlayBorder);
+
+  const confirmButton = scene.add.rectangle(cx, confirmY, contentWidth, confirmH, readyFill);
   const confirmText = scene.add
-    .text(width / 2, height / 2 + 100, confirmLabel, {
+    .text(cx, confirmY, confirmLabel, {
       fontFamily: FONT_FAMILIES.display,
       fontSize: '20px',
-      color: COLORS.primaryText,
+      color: readyTextColor,
     })
     .setOrigin(0.5);
+
+  let confirmReady = delaySeconds <= 0;
+  let countdownEvent = null;
+
+  function setConfirmReady() {
+    confirmReady = true;
+    confirmButton.setFillStyle(readyFill).setStrokeStyle(2, readyBorder);
+    confirmText.setText(confirmLabel).setColor(readyTextColor);
+    confirmButton.setInteractive({ useHandCursor: true });
+  }
+
+  if (confirmReady) {
+    confirmButton.setStrokeStyle(2, readyBorder).setInteractive({ useHandCursor: true });
+  } else {
+    confirmButton.setFillStyle(COLORS.disabled).setStrokeStyle(2, COLORS.disabledBorder);
+    confirmText.setText(String(delaySeconds)).setColor(COLORS.disabledText);
+
+    let remaining = delaySeconds;
+    countdownEvent = scene.time.addEvent({
+      delay: 1000,
+      loop: true,
+      callback: () => {
+        remaining -= 1;
+        if (remaining <= 0) {
+          countdownEvent?.remove(false);
+          countdownEvent = null;
+          setConfirmReady();
+          return;
+        }
+        confirmText.setText(String(remaining));
+      },
+    });
+  }
+
   const cancelButton = scene.add
-    .rectangle(width / 2, height / 2 + 172, width - 104, 52, COLORS.disabled)
+    .rectangle(cx, cancelY, contentWidth, cancelH, COLORS.disabled)
     .setStrokeStyle(2, COLORS.disabledBorder)
     .setInteractive({ useHandCursor: true });
   const cancelText = scene.add
-    .text(width / 2, height / 2 + 172, cancelLabel, {
+    .text(cx, cancelY, cancelLabel, {
       fontFamily: FONT_FAMILIES.display,
       fontSize: '18px',
       color: COLORS.disabledText,
@@ -212,12 +279,17 @@ export function showConfirmDialog(scene, { title, body, confirmLabel, cancelLabe
   ignoreModalOnListCameras(scene, dialog);
 
   function close() {
+    countdownEvent?.remove(false);
+    countdownEvent = null;
     dialog.destroy(true);
     scene.confirmDialog = null;
     restoreUiAfterModal(scene);
   }
 
   confirmButton.on('pointerup', () => {
+    if (!confirmReady) {
+      return;
+    }
     close();
     onConfirm?.();
   });
@@ -233,6 +305,8 @@ export function showPrestigeConfirm(scene, onConfirm) {
     body: UI_TEXT.prestigeConfirmBody,
     confirmLabel: UI_TEXT.prestigeConfirmYes,
     cancelLabel: UI_TEXT.prestigeConfirmNo,
+    danger: true,
+    confirmDelaySeconds: 5,
     onConfirm,
   });
 }

@@ -118,7 +118,6 @@ export function buildStatusView({ scene, content, listTop }) {
         }
 
         pushLine('○ ???', { color: COLORS.mutedText });
-        pushLine('   ???', { fontSize: '14px', color: COLORS.mutedText });
       });
 
       return items.length * LINE_HEIGHT;

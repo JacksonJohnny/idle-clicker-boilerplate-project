@@ -55,6 +55,10 @@ export const COLORS = {
   toggleOff: 0x672727,
   toggleOffBorder: 0xbd6565,
   toggleOffText: '#ffe0e0',
+  /** Destructive confirm (prestige). */
+  danger: 0xb91c1c,
+  dangerBorder: 0xf87171,
+  dangerText: '#fff1f1',
   overlay: 0x03080d,
   overlayPanel: 0x102635,
   overlayBorder: 0x4a8eb7,

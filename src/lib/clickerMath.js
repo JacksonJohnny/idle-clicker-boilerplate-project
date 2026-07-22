@@ -268,6 +268,54 @@ function getGeneratorProductionMultiplier(state, generatorId) {
   return multiplier;
 }
 
+function getGeneratorAutoRate(state, upgrade) {
+  return toDecimal(upgrade.baseValue).times(upgrade.level).times(getGeneratorProductionMultiplier(state, upgrade.id));
+}
+
+/**
+ * Share of total idle (auto) production from one generator, 0..1.
+ * Returns null when there is no idle yet or this generator contributes nothing (hide % in UI).
+ */
+export function getGeneratorIdleShare(state, generatorId) {
+  if (!state?.upgrades || !generatorId) {
+    return null;
+  }
+
+  const generators = state.upgrades.filter((upgrade) => upgrade.type === 'auto');
+  let total = new Decimal(0);
+  let own = new Decimal(0);
+
+  generators.forEach((upgrade) => {
+    const rate = getGeneratorAutoRate(state, upgrade);
+    total = total.plus(rate);
+    if (upgrade.id === generatorId) {
+      own = rate;
+    }
+  });
+
+  if (total.lte(0) || own.lte(0)) {
+    return null;
+  }
+
+  return own.div(total).toNumber();
+}
+
+/** Compact percent label for STORE rows (`12%`, `1.2%`, `0.08%`). */
+export function formatIdleSharePercent(share) {
+  if (share == null || !(share > 0)) {
+    return null;
+  }
+
+  const pct = share * 100;
+  if (pct >= 9.95) {
+    return `${Math.round(pct)}%`;
+  }
+  if (pct >= 0.995) {
+    return `${pct.toFixed(1)}%`;
+  }
+  return `${pct.toFixed(2)}%`;
+}
+
 export function isUpgradeUnlocked(upgrade, upgrades) {
   if (!upgrade.unlockAfter || upgrade.level > 0) {
     return true;
@@ -284,10 +332,7 @@ function calculateStats(state) {
 
   const autoRate = state.upgrades
     .filter((upgrade) => upgrade.type === 'auto')
-    .reduce((sum, upgrade) => {
-      const generatorMult = getGeneratorProductionMultiplier(state, upgrade.id);
-      return sum.plus(toDecimal(upgrade.baseValue).times(upgrade.level).times(generatorMult));
-    }, new Decimal(0));
+    .reduce((sum, upgrade) => sum.plus(getGeneratorAutoRate(state, upgrade)), new Decimal(0));
 
   const metaMultiplier = getPurchasedBoosts(state.boosts)
     .filter((boost) => boost.kind === 'global' || boost.kind === 'base_multiplier')

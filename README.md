@@ -21,10 +21,10 @@ Guia curto de fork/rebrand: [`BOILERPLATE.md`](BOILERPLATE.md).
 - Economia Decimal.js com custos exponenciais e formatação estilo Cookie Clicker.
 - Clique manual + 20 geradores idle encadeados + Auto Tap (cursores em órbita).
 - Aba **UPGRADE**: meta-upgrades genéricos (efficiency ×2, global, tap-%-of-idle, BASE MULTIPLIER 1…20).
-- Aba **STORE**: compra **×1 / ×10 / ×25 / MAX** (sem hold-to-buy); catálogo progressivo com `???`.
+- Aba **STORE**: compra **×1 / ×10 / ×25 / MAX** (sem hold-to-buy); catálogo progressivo com `???`; geradores idle mostram **% da produção**.
 - Idle por **relógio de parede** + ganhos offline (cap opcional; padrão **sem teto**).
-- Achievements com bônus permanente de idle %.
-- Prestige → **Ascension Tokens** (quadrado roxo) com diálogo de confirmação.
+- Achievements com bônus permanente de idle % (bloqueados: `○ ???`).
+- Prestige → **Ascension Tokens** (quadrado roxo) com confirm **vermelho** e countdown **5s**.
 - Abas: UPGRADE → STORE → TAP → STATUS → PRESTIGE (+ settings); labels **completos** na nav (≥44px; overflow `…` só se passar de 5 abas).
 - Save versionado (`SAVE_VERSION = 10`) com migrações e checksum.
 - Build web / Android / iOS; testes Vitest (economia, prestige, achievements, save).
@@ -124,7 +124,7 @@ Catálogo padrão: `tap-power` + `auto-tap`, geradores `upgrade-1`…`upgrade-20
 - Soft reset limpa: coins, níveis da STORE, meta-upgrades comprados (`boosts`).
 - Mantém: tokens, achievements, stats all-time.
 - ★ amarelas na STORE = efficiency pips, **não** Ascension Tokens.
-- Confirmação obrigatória na aba PRESTIGE.
+- Confirmação obrigatória: botão bloqueado com countdown **5 → 1**, depois **vermelho** + `PRESTIGE` clicável (CANCEL sempre livre).
 
 ### Auto Tap
 
@@ -147,10 +147,10 @@ Ordem das abas: **UPGRADE → STORE → TAP → STATUS → PRESTIGE** (+ setting
 | Aba | Conteúdo |
 | --- | --- |
 | UPGRADE | Meta-upgrades disponíveis (`meta*` UI / cameras) |
-| STORE | Geradores + buy bar ×1/×10/×25/MAX |
+| STORE | Geradores + buy bar ×1/×10/×25/MAX + % idle por gerador |
 | TAP | Botão central + Auto Tap |
-| STATUS | Stats, multiplicadores, achievements |
-| PRESTIGE | Tokens + soft reset confirmado |
+| STATUS | Stats, multiplicadores, achievements (`○ ???` se bloqueado) |
+| PRESTIGE | Tokens + soft reset (confirm com countdown) |
 
 Swipe horizontal entre páginas; scroll vertical nas listas. Nav inferior com nomes completos (`UPGRADE`, `STORE`, …). Overlay “Click to start” em save novo. List cameras escondidas enquanto modal está aberto.
 
@@ -158,6 +158,7 @@ Swipe horizontal entre páginas; scroll vertical nas listas. Nav inferior com no
 
 - Preferência salva em settings (`buyAmount`).
 - BUY aplica o modo ativo; `MAX` = máximo acessível com coins atuais.
+- Geradores `type: 'auto'`: linha de efeito inclui share do idle (`+8 coins / sec (80%)`); Lv.0 / idle zerado / tap-power / auto-tap → sem `%`.
 - Compras da STORE/UPGRADE disparam save imediato (além do autosave).
 - Sem hold-to-buy.
 
