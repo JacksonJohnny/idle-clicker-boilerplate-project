@@ -20,8 +20,8 @@ Guia curto de fork/rebrand: [`BOILERPLATE.md`](BOILERPLATE.md).
 
 - Economia Decimal.js com custos exponenciais e formatação estilo Cookie Clicker.
 - Clique manual + 20 geradores idle encadeados + Auto Tap (cursores em órbita).
-- Aba **UPGRADE**: meta-upgrades genéricos (efficiency ×2, global, tap-%-of-idle, BASE MULTIPLIER 1…20).
-- Aba **STORE**: compra **×1 / ×10 / ×25 / MAX** (sem hold-to-buy); catálogo progressivo com `???`; geradores idle mostram **% da produção**.
+- Aba **UPGRADE**: meta-upgrades genéricos (efficiency ×2, global, tap-%-of-idle, BASE MULTIPLIER 1…20); lista disponível ordenada por **preço crescente**.
+- Aba **STORE**: compra **×1 / ×10 / ×25 / MAX** (sem hold-to-buy); ordem de **liberação**; catálogo progressivo com `???`; geradores idle mostram **% da produção**.
 - Idle por **relógio de parede** + ganhos offline (cap opcional; padrão **sem teto**).
 - Achievements com bônus permanente de idle % (bloqueados: `○ ???`).
 - Prestige → **Ascension Tokens** (quadrado roxo) com confirm **vermelho** e countdown **5s**.
@@ -65,7 +65,7 @@ npm run test:coverage
 | `npm run dev` | Servidor Vite |
 | `npm run build` / `preview` | Build e preview |
 | `npm test` / `test:watch` / `test:coverage` | Vitest |
-| `npm run lint` / `format` | ESLint / Prettier |
+| `npm run lint` / `format` / `format:check` | ESLint / Prettier |
 | `npm run android` / `ios` | Build + sync + abrir IDE |
 | `npm run cap:doctor` | Diagnóstico Capacitor |
 
@@ -110,7 +110,7 @@ Arquivos-chave:
 - Tap: `1` + upgrades `type: 'click'` (+ share de idle via meta).
 - Idle: geradores `type: 'auto'` × meta × achievements × Ascension Tokens.
 - Custo: `baseCost * growth^level` (floor).
-- Meta-upgrades (compra única; somem da lista ao comprar):
+- Meta-upgrades (compra única; somem da lista ao comprar; na UI ordenados por preço, independente da STORE):
   - `generator` — own **5 / 25 / 50 / 100 / 200** → produção daquele gerador ×2 (compra na UPGRADE; **não** é auto-granted por owned no load)
   - `global` — own N total → produção global ×M
   - `click_per_second` — N taps → tap +% da produção idle
@@ -148,8 +148,8 @@ Ordem das abas: **UPGRADE → STORE → TAP → STATUS → PRESTIGE** (+ setting
 
 | Aba | Conteúdo |
 | --- | --- |
-| UPGRADE | Meta-upgrades disponíveis (`meta*` UI / cameras) |
-| STORE | Geradores + buy bar ×1/×10/×25/MAX + % idle por gerador |
+| UPGRADE | Meta-upgrades disponíveis, ordenados por preço crescente (`meta*` UI / cameras) |
+| STORE | Geradores na ordem de liberação + buy bar ×1/×10/×25/MAX + % idle por gerador |
 | TAP | Botão central + Auto Tap |
 | STATUS | Stats, multiplicadores, achievements (`○ ???` se bloqueado) |
 | PRESTIGE | Tokens + soft reset (confirm com countdown) |

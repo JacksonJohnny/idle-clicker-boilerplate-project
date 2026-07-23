@@ -14,6 +14,16 @@ import Decimal from 'decimal.js';
 
 import { PAGE } from './pageNavigation.js';
 
+function compareByCostAsc(a, b) {
+  if (a.cost.lt(b.cost)) {
+    return -1;
+  }
+  if (a.cost.gt(b.cost)) {
+    return 1;
+  }
+  return a.index - b.index;
+}
+
 export function updateStoreListLayout(scene) {
   const { rowHeight, rowGap, listTop } = scene.upgradeLayout;
   const step = rowHeight + rowGap;
@@ -40,10 +50,13 @@ export function updateStoreListLayout(scene) {
       item.buyButton.input.enabled = unlocked;
     }
 
-    if (visible) {
-      item.baseY = listTop + rowHeight / 2 + visibleIndex * step;
-      visibleIndex += 1;
+    if (!visible) {
+      item.baseY = null;
+      return;
     }
+
+    item.baseY = listTop + rowHeight / 2 + visibleIndex * step;
+    visibleIndex += 1;
   });
 
   const listHeight = visibleIndex > 0 ? visibleIndex * rowHeight + (visibleIndex - 1) * rowGap : 0;
@@ -56,8 +69,9 @@ export function updateMetaListLayout(scene) {
   const visibleMeta = scene.state.boosts.filter((meta) => isMetaUpgradeUnlocked(scene.state, meta));
   scene.metaEmptyText.setVisible(scene.activePage === PAGE.UPGRADE && visibleMeta.length === 0);
 
-  let visibleIndex = 0;
-  scene.metaItems.forEach((item) => {
+  const availableRows = [];
+
+  scene.metaItems.forEach((item, index) => {
     const meta = scene.state.boosts.find((entry) => entry.id === item.id);
     const available = isMetaUpgradeUnlocked(scene.state, meta);
     const objects = [item.background, item.name, item.condition, item.effect, item.buyButton, item.buyText];
@@ -72,7 +86,6 @@ export function updateMetaListLayout(scene) {
       return;
     }
 
-    item.baseY = listTop + rowHeight / 2 + visibleIndex * step;
     const cost = new Decimal(meta.cost).floor();
     const canBuy = scene.state.coins.gte(cost);
     item.condition.setText(getMetaUpgradeConditionText(meta));
@@ -82,10 +95,16 @@ export function updateMetaListLayout(scene) {
     item.buyButton.setFillStyle(canBuy ? COLORS.primary : COLORS.disabled);
     item.buyButton.setStrokeStyle(2, canBuy ? COLORS.primaryBorder : COLORS.disabledBorder);
     item.buyText.setColor(canBuy ? COLORS.primaryText : COLORS.disabledText);
-    visibleIndex += 1;
+    availableRows.push({ item, cost, index });
   });
 
-  const listHeight = visibleIndex > 0 ? visibleIndex * rowHeight + (visibleIndex - 1) * rowGap : 0;
+  availableRows.sort(compareByCostAsc);
+  availableRows.forEach((row, visibleIndex) => {
+    row.item.baseY = listTop + rowHeight / 2 + visibleIndex * step;
+  });
+
+  const visibleCount = availableRows.length;
+  const listHeight = visibleCount > 0 ? visibleCount * rowHeight + (visibleCount - 1) * rowGap : 0;
   scene.metaScroll.updateMetrics(listHeight);
 }
 

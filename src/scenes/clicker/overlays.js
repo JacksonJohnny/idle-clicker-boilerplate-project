@@ -250,14 +250,14 @@ function showConfirmDialog(
   }
 
   const cancelButton = scene.add
-    .rectangle(cx, cancelY, contentWidth, cancelH, COLORS.disabled)
-    .setStrokeStyle(2, COLORS.disabledBorder)
+    .rectangle(cx, cancelY, contentWidth, cancelH, COLORS.primary)
+    .setStrokeStyle(2, COLORS.primaryBorder)
     .setInteractive({ useHandCursor: true });
   const cancelText = scene.add
     .text(cx, cancelY, cancelLabel, {
       fontFamily: FONT_FAMILIES.display,
       fontSize: '18px',
-      color: COLORS.disabledText,
+      color: COLORS.primaryText,
     })
     .setOrigin(0.5);
 

@@ -48,7 +48,7 @@ Keep save field `boosts` stable so forks and old saves stay compatible. Rename U
 - Progressive catalog (`???` for next locked)
 - STORE buy modes ×1 / ×10 / ×25 / MAX (no hold-to-buy)
 - Auto Tap rings, color tiers, per-cursor floating gains
-- Meta-upgrades (efficiency / global / tap-%-of-idle / base multiplier)
+- Meta-upgrades (efficiency / global / tap-%-of-idle / base multiplier); UPGRADE list sorted by price asc (STORE keeps unlock order)
 - Achievements → permanent idle %
 - Prestige → Ascension Tokens (+1% idle each); confirm is red + 5s countdown before clickable
 - STATUS tab (stats, multipliers, achievements; locked rows show `○ ???`)
